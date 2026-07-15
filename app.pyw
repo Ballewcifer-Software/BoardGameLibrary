@@ -1447,7 +1447,7 @@ class App(tk.Tk):
 
         col_defs = [
             ("fav",     "★",           34,  "center"),
-            ("insert",  "📦",          34,  "center"),
+            ("insert",  "Insert",      56,  "center"),
             ("name",    "Name",        260, "w"     ),
             ("year",    "Year",         56, "center"),
             ("players", "Players",      88, "center"),
@@ -2259,7 +2259,7 @@ class App(tk.Tk):
                 tags=tags,
                 values=(
                     "★" if g["is_favorite"] else "",
-                    "\U0001f4e6" if g["has_insert"] else "",
+                    "✓" if g["has_insert"] else "",
                     f"{exp_prefix}{g['name']}",
                     g["year"] or "—",
                     fmt_players(g["min_players"], g["max_players"]),
@@ -2280,7 +2280,7 @@ class App(tk.Tk):
             self._sort_rev = False
 
         _labels = {
-            "fav": "★", "insert": "📦", "name": "Name", "year": "Year",
+            "fav": "★", "insert": "Insert", "name": "Name", "year": "Year",
             "players": "Players", "time": "Time", "weight": "Complexity",
             "rating": "BGG ★", "best": "Best At", "status": "Status", "plays": "Plays",
         }
