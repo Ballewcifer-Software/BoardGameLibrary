@@ -55,7 +55,7 @@
     </thead>
     <tbody>
       {% for r in rows %}
-      <tr {% if r.overdue %}class="overdue"{% endif %}>
+      <tr class="history-row {% if r.overdue %}overdue{% endif %}" ondblclick="openEditLoan({{ r|tojson }})" title="Double-click to edit">
         <td>{{ r.game_name }}</td>
         <td>{{ r.first_name }} {{ r.last_name }}</td>
         <td class="center nowrap">{{ r.checked_out_at[:10] }}</td>

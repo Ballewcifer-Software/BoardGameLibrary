@@ -168,6 +168,8 @@ img { max-width: 100%; display: block; }
 .data-table td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr.overdue td { color: var(--red); }
+.data-table tr.history-row { cursor: pointer; }
+.data-table tr.history-row:hover td { background: var(--card); }
 
 /* ── Segmented control ────────────────────────────────────────────────────── */
 .seg-control {
