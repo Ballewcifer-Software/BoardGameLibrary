@@ -1443,7 +1443,7 @@ class App(tk.Tk):
 
     def _build_table_widget(self, parent: ttk.Frame) -> None:
         cols = ("fav", "insert", "name", "year", "players", "time", "weight", "rating", "best", "status", "plays")
-        self.games_tree = ttk.Treeview(parent, columns=cols, show="headings", selectmode="browse")
+        self.games_tree = ttk.Treeview(parent, columns=cols, show="headings", selectmode="extended")
 
         col_defs = [
             ("fav",     "★",           34,  "center"),
@@ -1530,6 +1530,19 @@ class App(tk.Tk):
                 self.history_plays_tree.yview_scroll(delta, "units")
             else:
                 self.history_tree.yview_scroll(delta, "units")
+
+    def _bind_wheel_recursive(self, widget) -> None:
+        """Bind MouseWheel on *widget* and every descendant to _on_scroll.
+
+        bind_all("<MouseWheel>") is registered once at startup and should in
+        theory cover every widget via Tk's "all" bindtag, but in practice
+        deeply-nested card widgets (buttons, labels, canvases) can end up not
+        forwarding wheel events reliably. Binding explicitly per-widget makes
+        scrolling work no matter where over a card the pointer sits.
+        """
+        widget.bind("<MouseWheel>", self._on_scroll, add="+")
+        for child in widget.winfo_children():
+            self._bind_wheel_recursive(child)
 
     def _reflow_games(self, event: tk.Event) -> None:
         self.games_canvas.itemconfigure(self.games_window_id, width=event.width)
@@ -1913,7 +1926,17 @@ class App(tk.Tk):
             out.append(g)
         return out
 
-    def refresh_games(self) -> None:
+    def refresh_games(self, preserve_scroll: bool = False) -> None:
+        # A fresh search/filter should jump to the top of the results, but a
+        # refresh triggered by saving an edit or toggling checkout should
+        # leave the user where they were browsing.
+        _prev_scroll = 0.0
+        if preserve_scroll:
+            try:
+                _prev_scroll = (self.games_tree.yview()[0] if self._view_mode == "table"
+                                 else self.games_canvas.yview()[0])
+            except Exception:
+                _prev_scroll = 0.0
         with db.connect() as c:
             games = db.list_games(c, self.search_var.get().strip())
             total_count = c.execute("SELECT COUNT(*) FROM games WHERE own = 1").fetchone()[0]
@@ -1971,10 +1994,10 @@ class App(tk.Tk):
 
         if self._view_mode == "table":
             self._refresh_table_view(games, open_loans, play_counts)
-            self.games_tree.yview_moveto(0)
+            self.games_tree.yview_moveto(_prev_scroll)
         else:
             self._refresh_card_view(games, open_loans, play_counts)
-            self.games_canvas.yview_moveto(0)
+            self.games_canvas.yview_moveto(_prev_scroll)
 
     def _filters_active(self) -> bool:
         return (
@@ -2281,7 +2304,19 @@ class App(tk.Tk):
         self.games_tree.selection_set(row)
         game = next((g for g in self._table_games if g["bgg_id"] == int(row)), None)
         if game:
-            self.show_details(game)
+            self._toggle_checkout(game)
+
+    def _toggle_checkout(self, game) -> None:
+        """Double-click quick action: check in if out, check out if available."""
+        with db.connect() as c:
+            loan = c.execute(
+                "SELECT * FROM loans WHERE game_id = ? AND returned_at IS NULL",
+                (game["bgg_id"],),
+            ).fetchone()
+        if loan:
+            self.on_check_in(game)
+        else:
+            self.on_check_out(game)
 
     def _on_table_return(self, event: tk.Event) -> None:
         game = self._table_selected_game()
@@ -2292,7 +2327,23 @@ class App(tk.Tk):
         row = self.games_tree.identify_row(event.y)
         if not row:
             return
-        self.games_tree.selection_set(row)
+        # Right-clicking a row that's already part of a multi-row selection
+        # keeps that selection (so the bulk menu applies to all of them);
+        # right-clicking outside it collapses the selection to just that row.
+        if row not in self.games_tree.selection():
+            self.games_tree.selection_set(row)
+        sel = self.games_tree.selection()
+
+        if len(sel) > 1:
+            games = [g for g in self._table_games if g["bgg_id"] in {int(s) for s in sel}]
+            menu = tk.Menu(self, tearoff=0)
+            menu.add_command(label=f"Mark {len(games)} Games as Has 3D Insert",
+                              command=lambda: self._bulk_set_insert(games, True))
+            menu.add_command(label=f"Clear 3D Insert on {len(games)} Games",
+                              command=lambda: self._bulk_set_insert(games, False))
+            menu.tk_popup(event.x_root, event.y_root)
+            return
+
         game = next((g for g in self._table_games if g["bgg_id"] == int(row)), None)
         if not game:
             return
@@ -2320,6 +2371,12 @@ class App(tk.Tk):
         menu.add_separator()
         menu.add_command(label="Delete Game…", command=lambda: self.on_delete_game(game))
         menu.tk_popup(event.x_root, event.y_root)
+
+    def _bulk_set_insert(self, games: list, value: bool) -> None:
+        with db.connect() as c:
+            for game in games:
+                db.set_insert(c, game["bgg_id"], value)
+        self.refresh_games(preserve_scroll=True)
 
     def _build_card(self, game, loan, play_counts: dict) -> tuple:
         """Build one game card per the design-system .card spec.
@@ -2521,14 +2578,23 @@ class App(tk.Tk):
         card.bind("<Enter>", lambda e: card.configure(highlightbackground=C_INK_500))
         card.bind("<Leave>", lambda e: card.configure(highlightbackground=C_LINE_200))
 
-        # Right-click context menu
+        # Right-click context menu; double-click = quick check-in/out toggle
         def _card_right_click(event, g=game):
             self._show_card_context_menu(event, g)
+        def _card_double_click(event, g=game):
+            self._toggle_checkout(g)
         _rc_targets = [card, img_canvas, body]
         if not _is_sm:
             _rc_targets.append(sec)
         for w in _rc_targets:
             w.bind("<Button-3>", _card_right_click)
+            w.bind("<Double-Button-1>", _card_double_click)
+
+        # Explicit recursive MouseWheel binding — a global bind_all is also in
+        # place, but per-widget binding avoids relying on Tk's event-routing
+        # edge cases and guarantees scroll works no matter what part of the
+        # card the pointer is over.
+        self._bind_wheel_recursive(card)
 
         return card, (img_canvas, _img_id, game)
 
@@ -4537,7 +4603,7 @@ class App(tk.Tk):
                 db.set_insert(c, bgg_id, bool(insert_var.get()))
 
             dlg.destroy()
-            self.refresh_games()
+            self.refresh_games(preserve_scroll=True)
             verb = "Added" if is_new else "Updated"
             self.status(f"{verb} \"{name}\".")
             if is_new and game_row.get("image_url"):
@@ -4815,7 +4881,7 @@ class App(tk.Tk):
                 messagebox.showerror("Cannot check out", str(e))
                 return
             dialog.destroy()
-            self.refresh_games()
+            self.refresh_games(preserve_scroll=True)
             self.refresh_members()
             self.refresh_history()
             self.refresh_dashboard()
@@ -4834,7 +4900,7 @@ class App(tk.Tk):
         except ValueError as e:
             messagebox.showerror("Cannot check in", str(e))
             return
-        self.refresh_games()
+        self.refresh_games(preserve_scroll=True)
         self.refresh_members()
         self.refresh_history()
         self.refresh_dashboard()
@@ -4894,7 +4960,7 @@ class App(tk.Tk):
         new_val = not bool(game["is_favorite"])
         with db.connect() as c:
             db.set_favorite(c, game["bgg_id"], new_val)
-        self.refresh_games()
+        self.refresh_games(preserve_scroll=True)
 
     # ---------- plays tab ----------
 
@@ -5403,7 +5469,7 @@ class App(tk.Tk):
             bgg_pw      = bgg_pw_var.get()
             dialog.destroy()
             self.refresh_plays()
-            self.refresh_games()   # update play-count badges
+            self.refresh_games(preserve_scroll=True)   # update play-count badges
             self.refresh_dashboard()
             action = "Updated" if editing else "Logged"
             self.status(f"{action} play for {game_var.get()}.")
@@ -5469,7 +5535,7 @@ class App(tk.Tk):
         def on_insert_toggle() -> None:
             with db.connect() as c:
                 db.set_insert(c, game["bgg_id"], insert_var.get())
-            self.refresh_games()
+            self.refresh_games(preserve_scroll=True)
         ttk.Checkbutton(
             toggles, text="📦 Has 3D printed insert",
             variable=insert_var, command=on_insert_toggle,
@@ -5479,7 +5545,7 @@ class App(tk.Tk):
         def on_fav_toggle() -> None:
             with db.connect() as c:
                 db.set_favorite(c, game["bgg_id"], fav_var.get())
-            self.refresh_games()
+            self.refresh_games(preserve_scroll=True)
         ttk.Checkbutton(
             toggles, text="★ Favorite",
             variable=fav_var, command=on_fav_toggle,
@@ -5745,7 +5811,7 @@ class App(tk.Tk):
                               (url, bgg_id))
 
             dialog.destroy()
-            self.refresh_games()
+            self.refresh_games(preserve_scroll=True)
             if refresh_callback:
                 refresh_callback()
             self.status(f"Image updated for {game['name']}.")

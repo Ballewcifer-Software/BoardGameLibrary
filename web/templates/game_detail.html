@@ -203,7 +203,14 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => bindWinner('dlp-players', 'dlp-winner'));
+document.addEventListener('DOMContentLoaded', () => {
+  bindWinner('dlp-players', 'dlp-winner');
+  // Arrived here via a quick-checkout double-click on the games grid.
+  if (new URLSearchParams(location.search).get('checkout') === '1'
+      && document.getElementById('modal-checkout')) {
+    openModal('modal-checkout');
+  }
+});
 </script>
 
 {% endblock %}

@@ -30,6 +30,18 @@
 
   <button class="btn btn-secondary btn-sm" onclick="openModal('modal-random')" aria-label="Pick a random game">🎲 Surprise Me</button>
   <button class="btn btn-secondary btn-sm" onclick="openModal('modal-add-game')" aria-label="Add game from BGG">+ Add Game</button>
+  <button id="select-mode-toggle" class="btn btn-secondary btn-sm" onclick="toggleSelectMode()" aria-label="Select multiple games">☑ Select</button>
+</div>
+
+<!-- Bulk-edit action bar (shown while in select mode) -->
+<div id="bulk-bar" class="bulk-bar" hidden>
+  <span id="bulk-count" class="muted">0 selected</span>
+  <form method="post" action="/games/bulk_update" id="bulk-form" style="display:inline">
+    <input type="hidden" name="has_insert" id="bulk-has-insert" value="1">
+    <button type="button" class="btn btn-primary btn-sm" onclick="bulkSubmit(1)">📦 Mark Has 3D Insert</button>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="bulkSubmit(0)">Clear 3D Insert</button>
+  </form>
+  <button class="btn btn-secondary btn-sm" onclick="toggleSelectMode()">Cancel</button>
 </div>
 
 {% if multi %}
@@ -73,9 +85,13 @@
 <p class="result-count muted">{{ games|length }} game{{ 's' if games|length != 1 else '' }}</p>
 
 <!-- Game cards grid -->
-<div class="game-grid">
+<div class="game-grid" id="grid-container">
   {% for g in games %}
-  <a href="/games/{{ g.bgg_id }}" class="game-card {% if g.loan %}game-card--out{% endif %}">
+  <a href="/games/{{ g.bgg_id }}" class="game-card {% if g.loan %}game-card--out{% endif %}"
+     data-bgg-id="{{ g.bgg_id }}" data-out="{{ '1' if g.loan else '' }}">
+    <label class="game-card-select" onclick="event.stopPropagation()">
+      <input type="checkbox" class="game-select-box" value="{{ g.bgg_id }}" onchange="updateBulkCount()">
+    </label>
     {% if g.is_favorite %}<span class="fav-badge"><span aria-hidden="true">★</span><span class="sr-only">Favorite</span></span>{% endif %}
     {% if g.is_expansion %}<span class="exp-badge" aria-label="Expansion">Expansion</span>{% endif %}
 
@@ -138,6 +154,89 @@
     if (shown >= cards.length) io.disconnect();
   }, { rootMargin: '600px' });
   io.observe(sentinel);
+})();
+
+// Double-click quick action: checked-out games check in immediately;
+// available games jump to the detail page with the checkout modal open.
+// A single click still navigates to the detail page — delay it briefly so
+// a following second click can cancel it instead of racing the dblclick.
+(function () {
+  document.querySelectorAll('.game-grid > .game-card[data-bgg-id]').forEach((card) => {
+    let clickTimer = null;
+    card.addEventListener('click', (e) => {
+      if (document.getElementById('grid-container').classList.contains('select-mode')) {
+        e.preventDefault();
+        const box = card.querySelector('.game-select-box');
+        if (e.target !== box) box.checked = !box.checked;
+        updateBulkCount();
+        return;
+      }
+      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; return; }
+      e.preventDefault();
+      const href = card.getAttribute('href');
+      clickTimer = setTimeout(() => { clickTimer = null; window.location.href = href; }, 250);
+    });
+    card.addEventListener('dblclick', (e) => {
+      if (document.getElementById('grid-container').classList.contains('select-mode')) return;
+      e.preventDefault();
+      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+      const bggId = card.dataset.bggId;
+      if (card.dataset.out) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '/games/' + bggId + '/checkin';
+        document.body.appendChild(form);
+        form.submit();
+      } else {
+        window.location.href = '/games/' + bggId + '?checkout=1';
+      }
+    });
+  });
+})();
+
+// Multi-select bulk edit: toggle checkboxes on cards, then bulk-toggle
+// "Has 3D insert" across every selected game via /games/bulk_update.
+function toggleSelectMode() {
+  const grid = document.getElementById('grid-container');
+  const on = grid.classList.toggle('select-mode');
+  document.getElementById('bulk-bar').hidden = !on;
+  document.getElementById('select-mode-toggle').textContent = on ? '✕ Cancel Select' : '☑ Select';
+  if (!on) {
+    document.querySelectorAll('.game-select-box').forEach(b => { b.checked = false; });
+  }
+  updateBulkCount();
+}
+function updateBulkCount() {
+  const n = document.querySelectorAll('.game-select-box:checked').length;
+  document.getElementById('bulk-count').textContent = n + ' selected';
+}
+function bulkSubmit(hasInsert) {
+  const ids = Array.from(document.querySelectorAll('.game-select-box:checked')).map(b => b.value);
+  if (!ids.length) { alert('Select at least one game first.'); return; }
+  const form = document.getElementById('bulk-form');
+  form.querySelectorAll('input[name="bgg_ids"]').forEach(el => el.remove());
+  ids.forEach(id => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'bgg_ids'; inp.value = id;
+    form.appendChild(inp);
+  });
+  document.getElementById('bulk-has-insert').value = hasInsert ? '1' : '0';
+  form.submit();
+}
+
+// Preserve grid scroll position across a search/filter/edit round-trip:
+// stash it before leaving the page, restore it if we're coming back to
+// the same query (a fresh search/filter is expected to land at the top).
+(function () {
+  const key = 'bgl-games-scroll:' + location.search;
+  window.addEventListener('beforeunload', () => {
+    sessionStorage.setItem(key, String(window.scrollY));
+  });
+  const saved = sessionStorage.getItem(key);
+  if (saved) {
+    sessionStorage.removeItem(key);
+    window.scrollTo(0, parseInt(saved, 10));
+  }
 })();
 </script>
 

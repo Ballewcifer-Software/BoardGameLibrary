@@ -400,6 +400,19 @@ def update_game(bgg_id):
     return redirect(url_for("game_detail", bgg_id=bgg_id))
 
 
+@app.route("/games/bulk_update", methods=["POST"])
+def bulk_update_games():
+    bgg_ids = request.form.getlist("bgg_ids", type=int)
+    has_insert = request.form.get("has_insert") == "1"
+    if bgg_ids:
+        with db.connect() as c:
+            for bgg_id in bgg_ids:
+                db.set_insert(c, bgg_id, has_insert)
+        verb = "Marked" if has_insert else "Cleared 3D insert on"
+        flash(f"{verb} {len(bgg_ids)} game{'s' if len(bgg_ids) != 1 else ''}.", "success")
+    return redirect(request.referrer or url_for("games"))
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Members
 # ═══════════════════════════════════════════════════════════════════════════════
