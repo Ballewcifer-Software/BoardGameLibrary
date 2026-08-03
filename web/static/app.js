@@ -202,6 +202,73 @@ function applyTheme(name) {
   });
 }
 
+// ── Sortable data tables — click a <th> to sort by that column ─────────────
+// A <td> can set data-sort="raw value" to sort by something other than its
+// displayed text (e.g. a number without a unit suffix). Add class="no-sort"
+// to a <th> to exclude it (e.g. an actions column).
+function sortTable(table, colIndex) {
+  const tbody = table.tBodies[0];
+  if (!tbody) return;
+  const rows = Array.from(tbody.rows);
+  const state = table._sortState || {};
+  const reverse = state.col === colIndex ? !state.rev : false;
+  table._sortState = { col: colIndex, rev: reverse };
+
+  const cellVal = row => {
+    const cell = row.cells[colIndex];
+    return ((cell && (cell.dataset.sort ?? cell.textContent)) || '').trim();
+  };
+  rows.sort((a, b) => {
+    const av = cellVal(a), bv = cellVal(b);
+    const an = parseFloat(av), bn = parseFloat(bv);
+    const bothNumeric = av !== '' && bv !== '' && /^-?[\d.]+$/.test(av) && /^-?[\d.]+$/.test(bv);
+    const cmp = bothNumeric ? (an - bn) : av.toLowerCase().localeCompare(bv.toLowerCase());
+    return reverse ? -cmp : cmp;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+
+  table.querySelectorAll('th[data-sort-idx]').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (parseInt(th.dataset.sortIdx, 10) === colIndex) {
+      th.classList.add(reverse ? 'sort-desc' : 'sort-asc');
+    }
+  });
+}
+
+function makeSortableTable(table) {
+  const headRow = table.tHead && table.tHead.rows[0];
+  if (!headRow) return;
+  Array.from(headRow.cells).forEach((th, idx) => {
+    if (th.classList.contains('no-sort') || !th.textContent.trim()) return;
+    th.dataset.sortIdx = idx;
+    th.classList.add('sortable-col');
+    th.tabIndex = 0;
+    th.setAttribute('role', 'button');
+    th.setAttribute('aria-label', `Sort by ${th.textContent.trim()}`);
+    th.addEventListener('click', () => sortTable(table, idx));
+    th.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortTable(table, idx); }
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('table.sortable').forEach(makeSortableTable);
+});
+
+// ── Member list sort (card grid, not a <table>) ─────────────────────────────
+function sortMemberList(by) {
+  const list = document.getElementById('member-list');
+  if (!list) return;
+  const cards = Array.from(list.children);
+  cards.sort((a, b) => {
+    if (by === 'since') return (a.dataset.since || '').localeCompare(b.dataset.since || '');
+    if (by === 'out')   return (parseInt(b.dataset.out, 10) || 0) - (parseInt(a.dataset.out, 10) || 0);
+    return (a.dataset.name || '').toLowerCase().localeCompare((b.dataset.name || '').toLowerCase());
+  });
+  cards.forEach(c => list.appendChild(c));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const box = document.getElementById('theme-swatches');
   if (!box || !window.BGL_THEMES) return;

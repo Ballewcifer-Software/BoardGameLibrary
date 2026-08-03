@@ -170,6 +170,11 @@ img { max-width: 100%; display: block; }
 .data-table tr.overdue td { color: var(--red); }
 .data-table tr.history-row { cursor: pointer; }
 .data-table tr.history-row:hover td { background: var(--card); }
+.data-table th.sortable-col { cursor: pointer; user-select: none; }
+.data-table th.sortable-col:hover { color: var(--text); }
+.data-table th.sortable-col::after { content: "⇅"; opacity: .35; margin-left: 4px; font-size: .75em; }
+.data-table th.sortable-col.sort-asc::after  { content: "▲"; opacity: .9; }
+.data-table th.sortable-col.sort-desc::after { content: "▼"; opacity: .9; }
 
 /* ── Segmented control ────────────────────────────────────────────────────── */
 .seg-control {

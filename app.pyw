@@ -318,6 +318,9 @@ class _AutocompleteEntry(ttk.Entry):
     def var(self) -> tk.StringVar:
         return self._var
 
+    def set_suggestions(self, suggestions: list[str]) -> None:
+        self._suggestions = suggestions
+
     def _last_token(self) -> str:
         text = self._var.get()
         return text.rsplit(",", 1)[-1].strip()
@@ -523,6 +526,7 @@ class App(tk.Tk):
         self._card_size: str = self.settings.get("card_size", "md")
         self._sort_col: Optional[str] = None
         self._sort_rev: bool = False
+        self._tv_sort_state: dict = {}   # id(treeview) -> (col, reverse) for _make_sortable()
         self._table_games: list = []
         self._card_games: list = []      # full ordered list backing the card view
         self._cards_rendered: int = 0    # how many card widgets are built (batched)
@@ -2288,6 +2292,42 @@ class App(tk.Tk):
             arrow = (" ▲" if not self._sort_rev else " ▼") if c == col else ""
             self.games_tree.heading(c, text=lbl + arrow)
 
+    def _make_sortable(self, tree: ttk.Treeview, base_headings: dict) -> None:
+        """Wire click-to-sort on every column heading of a Treeview. Sorts the
+        already-populated rows in place, in-memory-and-DB-agnostic — works on
+        any Treeview built with columns=(...). Call once after building the
+        tree's headings; re-call after refreshing rows to keep the sort applied
+        isn't necessary — call _reapply_sort(tree) instead if the row set changed."""
+        for col in base_headings:
+            tree.heading(col, command=lambda c=col: self._toggle_sort(tree, c, base_headings))
+
+    def _toggle_sort(self, tree: ttk.Treeview, col: str, base_headings: dict) -> None:
+        cur_col, cur_rev = self._tv_sort_state.get(id(tree), (None, False))
+        reverse = (not cur_rev) if cur_col == col else False
+        self._tv_sort_state[id(tree)] = (col, reverse)
+        self._apply_sort(tree, col, reverse)
+        for c, lbl in base_headings.items():
+            arrow = (" ▲" if not reverse else " ▼") if c == col else ""
+            tree.heading(c, text=lbl + arrow)
+
+    def _apply_sort(self, tree: ttk.Treeview, col: str, reverse: bool) -> None:
+        def keyfn(iid):
+            v = tree.set(iid, col)
+            try:
+                return (0, float(v))
+            except (ValueError, TypeError):
+                return (1, v.lower())
+        items = list(tree.get_children(""))
+        items.sort(key=keyfn, reverse=reverse)
+        for index, iid in enumerate(items):
+            tree.move(iid, "", index)
+
+    def _reapply_sort(self, tree: ttk.Treeview, base_headings: dict) -> None:
+        """Re-apply the last sort for this tree after its rows were refreshed."""
+        col, reverse = self._tv_sort_state.get(id(tree), (None, False))
+        if col:
+            self._apply_sort(tree, col, reverse)
+
         self.refresh_games()
 
     def _table_selected_game(self) -> Optional[dict]:
@@ -2740,10 +2780,12 @@ class App(tk.Tk):
                    command=self.on_delete_member).pack(side="left", padx=(SP["sm"], 0))
 
         cols = ("name", "out", "since")
+        self._members_headings = {"name": "Name", "out": "Currently out", "since": "Member since"}
         self.members_tree = ttk.Treeview(frame, columns=cols, show="headings")
         self.members_tree.heading("name", text="Name")
         self.members_tree.heading("out", text="Currently out")
         self.members_tree.heading("since", text="Member since")
+        self._make_sortable(self.members_tree, self._members_headings)
         self.members_tree.column("name", width=240)
         self.members_tree.column("out", width=120, anchor="center")
         self.members_tree.column("since", width=160, anchor="center")
@@ -2770,6 +2812,7 @@ class App(tk.Tk):
                 iid=str(u["id"]),
                 values=(f"{u['first_name']} {u['last_name']}", counts.get(u["id"], 0), fmt_date(u["created_at"])),
             )
+        self._reapply_sort(self.members_tree, self._members_headings)
 
     def on_add_member(self) -> None:
         first = self.first_name_var.get().strip()
@@ -2942,6 +2985,10 @@ class App(tk.Tk):
                         command=self.refresh_history).pack(side="left", padx=SP["xs"])
 
         cols = ("game", "member", "out", "due", "returned", "notes")
+        self._history_headings = {
+            "game": "Game", "member": "Member", "out": "Checked Out",
+            "due": "Due", "returned": "Returned", "notes": "Notes",
+        }
         self.history_tree = ttk.Treeview(self._hist_checkouts_pane, columns=cols, show="headings")
         self.history_tree.heading("game",     text="Game")
         self.history_tree.heading("member",   text="Member")
@@ -2949,6 +2996,7 @@ class App(tk.Tk):
         self.history_tree.heading("due",      text="Due")
         self.history_tree.heading("returned", text="Returned")
         self.history_tree.heading("notes",    text="Notes")
+        self._make_sortable(self.history_tree, self._history_headings)
         self.history_tree.column("game",     width=220)
         self.history_tree.column("member",   width=150)
         self.history_tree.column("out",      width=110, anchor="center")
@@ -2970,6 +3018,10 @@ class App(tk.Tk):
         self._hist_plays_pane = ttk.Frame(frame)
 
         pcols = ("game", "date", "players", "winner", "duration")
+        self._history_plays_headings = {
+            "game": "Game", "date": "Date", "players": "Players",
+            "winner": "Winner", "duration": "Duration",
+        }
         p_tree_row = ttk.Frame(self._hist_plays_pane)
         p_tree_row.pack(fill="both", expand=True, pady=(SP["sm"], 0))
         self.history_plays_tree = ttk.Treeview(
@@ -2979,6 +3031,7 @@ class App(tk.Tk):
         self.history_plays_tree.heading("players",  text="Players")
         self.history_plays_tree.heading("winner",   text="Winner")
         self.history_plays_tree.heading("duration", text="Duration")
+        self._make_sortable(self.history_plays_tree, self._history_plays_headings)
         self.history_plays_tree.column("game",     width=220, anchor="w")
         self.history_plays_tree.column("date",     width=110, anchor="center", stretch=False)
         self.history_plays_tree.column("players",  width=240, anchor="w")
@@ -3027,6 +3080,7 @@ class App(tk.Tk):
                 ),
                 tags=("overdue",) if overdue else (),
             )
+        self._reapply_sort(self.history_tree, self._history_headings)
 
     def _set_history_mode(self, mode: str) -> None:
         self.history_mode.set(mode)
@@ -3069,6 +3123,7 @@ class App(tk.Tk):
                     duration,
                 ),
             )
+        self._reapply_sort(self.history_plays_tree, self._history_plays_headings)
 
     def _on_history_double_click(self, event: tk.Event) -> None:
         row = self.history_tree.identify_row(event.y)
@@ -5009,6 +5064,10 @@ class App(tk.Tk):
         self._plays_pane.pack(fill="both", expand=True)
 
         cols = ("game", "date", "players", "winner", "duration", "scores", "notes")
+        self._plays_headings = {
+            "game": "Game", "date": "Date", "players": "Players", "winner": "Winner",
+            "duration": "Duration", "scores": "Scores", "notes": "Notes",
+        }
         self.plays_tree = ttk.Treeview(self._plays_pane, columns=cols, show="headings")
         self.plays_tree.heading("game",     text="Game")
         self.plays_tree.heading("date",     text="Date")
@@ -5017,6 +5076,7 @@ class App(tk.Tk):
         self.plays_tree.heading("duration", text="Duration")
         self.plays_tree.heading("scores",   text="Scores")
         self.plays_tree.heading("notes",    text="Notes")
+        self._make_sortable(self.plays_tree, self._plays_headings)
         self.plays_tree.column("game",     width=190)
         self.plays_tree.column("date",     width=100, anchor="center")
         self.plays_tree.column("players",  width=160)
@@ -5232,6 +5292,7 @@ class App(tk.Tk):
                     r["notes"] or "",
                 ),
             )
+        self._reapply_sort(self.plays_tree, self._plays_headings)
 
         # Keep leaderboard in sync if it's currently visible
         if getattr(self, "_lb_showing", False):
@@ -5269,8 +5330,7 @@ class App(tk.Tk):
         else:
             initial = game["name"] if game else (game_names[0] if game_names else "")
         game_var = tk.StringVar(value=initial)
-        game_cb = ttk.Combobox(dialog, textvariable=game_var, values=game_names,
-                                state="readonly", width=28)
+        game_cb = _AutocompleteEntry(dialog, game_names, textvariable=game_var, width=30)
         game_cb.grid(row=0, column=1, sticky="w", padx=(12, 4), pady=4)
 
         def _find_on_bgg() -> None:
@@ -5333,7 +5393,7 @@ class App(tk.Tk):
             game_id_map[name] = bgg_id
             if name not in game_names:
                 game_names.append(name)
-                game_cb["values"] = sorted(game_names)
+                game_cb.set_suggestions(sorted(game_names))
             game_var.set(name)
 
         ttk.Button(dialog, text="Find on BGG…", command=_find_on_bgg).grid(
@@ -5471,6 +5531,7 @@ class App(tk.Tk):
             self.refresh_plays()
             self.refresh_games(preserve_scroll=True)   # update play-count badges
             self.refresh_dashboard()
+            self.refresh_members()   # players typed here may have been auto-added as members
             action = "Updated" if editing else "Logged"
             self.status(f"{action} play for {game_var.get()}.")
             # Optionally sync to BGG — password is used once and never stored
@@ -6002,14 +6063,24 @@ class App(tk.Tk):
         threading.Thread(target=_bg, daemon=True).start()
 
     def on_import_data(self) -> None:
-        """Import a library ZIP created by Export Library…, replacing all local data."""
+        """Import a library backup, replacing all local data (ZIP) or merging
+        in new records (JSON, e.g. from Export for Mobile or the mobile app)."""
         import zipfile as _zf
 
         src_path = filedialog.askopenfilename(
             title="Import Board Game Library",
-            filetypes=[("ZIP archive", "*.zip"), ("All files", "*.*")],
+            filetypes=[
+                ("Board Game Library backup", "*.zip *.json"),
+                ("ZIP archive", "*.zip"),
+                ("JSON backup", "*.json"),
+                ("All files", "*.*"),
+            ],
         )
         if not src_path:
+            return
+
+        if src_path.lower().endswith(".json"):
+            self._import_json_backup(src_path)
             return
 
         # Validate the ZIP before asking for confirmation
@@ -6088,6 +6159,132 @@ class App(tk.Tk):
                 ])
 
         self.status("Importing library…")
+        threading.Thread(target=_bg, daemon=True).start()
+
+    def _import_json_backup(self, src_path: str) -> None:
+        """Merge-import a JSON backup (from Export for Mobile, or the mobile
+        app's own export) — adds new members/plays/loans/customisations
+        without touching existing data. Mirrors mobile's importBackup()."""
+        import json as _json
+
+        try:
+            with open(src_path, "r", encoding="utf-8") as f:
+                data = _json.load(f)
+        except Exception as exc:
+            messagebox.showerror("Invalid file", f"Could not read the file:\n{exc}")
+            return
+
+        if not data.get("version") or not data.get("members"):
+            messagebox.showerror(
+                "Invalid file",
+                "This doesn't appear to be a Board Game Library backup.",
+            )
+            return
+
+        if not messagebox.askyesno(
+            "Import Backup",
+            "This will ADD any members, plays, loans and game notes/ratings from "
+            "this file that don't already exist locally.\n\n"
+            "Existing data is not changed or removed. Continue?",
+        ):
+            return
+
+        def _bg():
+            counts = {"members": 0, "plays": 0, "loans": 0, "customisations": 0, "skipped": 0}
+            try:
+                with db.connect() as c:
+                    # ── Members — map old ids -> local ids so loans/plays resolve ──
+                    user_id_map: dict[int, int] = {}
+                    for m in data.get("members") or []:
+                        row = c.execute(
+                            "SELECT id FROM users WHERE first_name = ? AND last_name = ?",
+                            (m.get("first_name"), m.get("last_name")),
+                        ).fetchone()
+                        if row:
+                            user_id_map[m["id"]] = row["id"]
+                            counts["skipped"] += 1
+                        else:
+                            new_id = db.add_user(c, m.get("first_name") or "", m.get("last_name") or "")
+                            user_id_map[m["id"]] = new_id
+                            counts["members"] += 1
+
+                    # ── Plays ────────────────────────────────────────────────────
+                    for p in data.get("plays") or []:
+                        exists = c.execute(
+                            "SELECT id FROM plays WHERE game_id = ? AND played_at = ?",
+                            (p.get("game_id"), p.get("played_at")),
+                        ).fetchone()
+                        if exists:
+                            counts["skipped"] += 1
+                            continue
+                        if not db.get_game(c, p.get("game_id")):
+                            counts["skipped"] += 1
+                            continue
+                        db.log_play(
+                            c, p["game_id"], p["played_at"],
+                            p.get("player_names") or "", p.get("winner") or "",
+                            p.get("notes") or "",
+                            duration_minutes=p.get("duration_minutes"),
+                            scores=p.get("scores"),
+                        )
+                        counts["plays"] += 1
+
+                    # ── Loans ────────────────────────────────────────────────────
+                    for l in data.get("loans") or []:
+                        mapped_user_id = user_id_map.get(l.get("user_id"), l.get("user_id"))
+                        exists = c.execute(
+                            "SELECT id FROM loans WHERE game_id = ? AND checked_out_at = ?",
+                            (l.get("game_id"), l.get("checked_out_at")),
+                        ).fetchone()
+                        if exists:
+                            counts["skipped"] += 1
+                            continue
+                        if not db.get_game(c, l.get("game_id")):
+                            counts["skipped"] += 1
+                            continue
+                        c.execute(
+                            "INSERT INTO loans (game_id, user_id, checked_out_at, returned_at, due_date, notes) "
+                            "VALUES (?, ?, ?, ?, ?, ?)",
+                            (l["game_id"], mapped_user_id, l["checked_out_at"],
+                             l.get("returned_at"), l.get("due_date"), l.get("notes")),
+                        )
+                        counts["loans"] += 1
+
+                    # ── Game customisations ─────────────────────────────────────
+                    for cu in data.get("customisations") or []:
+                        if not db.get_game(c, cu.get("bgg_id")):
+                            counts["skipped"] += 1
+                            continue
+                        c.execute(
+                            "UPDATE games SET tags=?, is_favorite=?, has_insert=?, "
+                            "my_comment=?, my_rating=?, manual_fields=? WHERE bgg_id=?",
+                            (cu.get("tags"), cu.get("is_favorite") or 0, cu.get("has_insert") or 0,
+                             cu.get("my_comment"), cu.get("my_rating"), cu.get("manual_fields"),
+                             cu["bgg_id"]),
+                        )
+                        counts["customisations"] += 1
+
+                def _finish():
+                    self.refresh_all()
+                    self.status("Backup imported.")
+                    messagebox.showinfo(
+                        "Import complete",
+                        f"Members: +{counts['members']}\n"
+                        f"Plays: +{counts['plays']}\n"
+                        f"Loans: +{counts['loans']}\n"
+                        f"Customisations: {counts['customisations']}\n"
+                        f"Skipped (already existed): {counts['skipped']}",
+                    )
+
+                self.after(0, _finish)
+            except Exception as exc:
+                e = str(exc)
+                self.after(0, lambda: [
+                    messagebox.showerror("Import failed", f"Could not import backup:\n{e}"),
+                    self.status("Import failed."),
+                ])
+
+        self.status("Importing backup…")
         threading.Thread(target=_bg, daemon=True).start()
 
     def on_export_for_mobile(self) -> None:

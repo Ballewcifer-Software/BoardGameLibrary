@@ -52,7 +52,7 @@
 
 {% if rows %}
 <div class="card mt" style="overflow-x:auto">
-  <table class="data-table">
+  <table class="data-table sortable">
     <thead>
       <tr>
         <th>Game</th>
@@ -62,7 +62,7 @@
         <th class="center">Duration</th>
         <th class="center">Scores</th>
         <th>Notes</th>
-        <th></th>
+        <th class="no-sort"></th>
       </tr>
     </thead>
     <tbody>
@@ -72,7 +72,7 @@
         <td class="center nowrap">{{ p.played_at[:10] }}</td>
         <td>{{ p.player_names or '—' }}</td>
         <td class="center">{{ p.winner or '—' }}</td>
-        <td class="center">{{ p.duration_minutes ~ ' min' if p.duration_minutes else '—' }}</td>
+        <td class="center" data-sort="{{ p.duration_minutes or 0 }}">{{ p.duration_minutes ~ ' min' if p.duration_minutes else '—' }}</td>
         <td class="center">{{ p.scores or '—' }}</td>
         <td class="muted">{{ p.notes or '' }}</td>
         <td class="nowrap">

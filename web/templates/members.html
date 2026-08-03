@@ -4,13 +4,24 @@
 
 <div class="page-header">
   <h1 class="page-title">Members</h1>
-  <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-member')">+ Add Member</button>
+  <div style="display:flex; align-items:center; gap:8px">
+    <label class="muted" for="member-sort" style="font-size:.85rem">Sort by</label>
+    <select id="member-sort" class="filter-select" onchange="sortMemberList(this.value)">
+      <option value="name">Name</option>
+      <option value="since">Member since</option>
+      <option value="out">Currently out</option>
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-member')">+ Add Member</button>
+  </div>
 </div>
 
 {% if users %}
-<div class="member-list">
+<div class="member-list" id="member-list">
   {% for u in users %}
-  <div class="member-card">
+  <div class="member-card"
+       data-name="{{ u.first_name }} {{ u.last_name }}"
+       data-since="{{ u.created_at }}"
+       data-out="{{ open_map.get(u.id, [])|length }}">
     <div class="member-avatar">{{ u.first_name[0] }}{{ u.last_name[0] }}</div>
     <div class="member-info">
       <div class="member-name">{{ u.first_name }} {{ u.last_name }}</div>

@@ -41,7 +41,7 @@
 
 {% if rows %}
 <div class="card mt" style="overflow-x:auto">
-  <table class="data-table">
+  <table class="data-table sortable">
     <thead>
       <tr>
         <th>Game</th>
@@ -50,7 +50,7 @@
         <th class="center">Due</th>
         <th class="center">Returned</th>
         <th>Notes</th>
-        <th></th>
+        <th class="no-sort"></th>
       </tr>
     </thead>
     <tbody>
@@ -60,7 +60,7 @@
         <td>{{ r.first_name }} {{ r.last_name }}</td>
         <td class="center nowrap">{{ r.checked_out_at[:10] }}</td>
         <td class="center nowrap">{{ r.due_date or '—' }}</td>
-        <td class="center nowrap">
+        <td class="center nowrap" data-sort="{{ r.returned_at[:10] if r.returned_at else '' }}">
           {% if r.returned_at %}
             {{ r.returned_at[:10] }}
           {% else %}
@@ -92,7 +92,7 @@
 
 {% if plays %}
 <div class="card mt" style="overflow-x:auto">
-  <table class="data-table">
+  <table class="data-table sortable">
     <thead>
       <tr>
         <th>Game</th>
@@ -109,7 +109,7 @@
         <td class="center nowrap">{{ p.played_at[:10] if p.played_at else '—' }}</td>
         <td>{{ p.player_names or '' }}</td>
         <td class="center">{{ p.winner or '—' }}</td>
-        <td class="center nowrap">{{ (p.duration_minutes|string + ' min') if p.duration_minutes else '—' }}</td>
+        <td class="center nowrap" data-sort="{{ p.duration_minutes or 0 }}">{{ (p.duration_minutes|string + ' min') if p.duration_minutes else '—' }}</td>
       </tr>
       {% endfor %}
     </tbody>
