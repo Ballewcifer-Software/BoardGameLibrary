@@ -510,6 +510,24 @@ def loan_history(
 
 # ---------- plays ----------
 
+def ensure_players_as_members(c: sqlite3.Connection, player_names: str) -> None:
+    """Auto-create a Member for any comma-separated player-name token that doesn't
+    already match an existing member's "First Last" (case-insensitive)."""
+    tokens = [t.strip() for t in (player_names or "").split(",") if t.strip()]
+    if not tokens:
+        return
+    known = {f"{u['first_name']} {u['last_name']}".strip().casefold() for u in list_users(c)}
+    for token in tokens:
+        if token.casefold() in known:
+            continue
+        if " " in token:
+            first_name, last_name = token.rsplit(" ", 1)
+        else:
+            first_name, last_name = token, ""
+        add_user(c, first_name, last_name)
+        known.add(token.casefold())
+
+
 def log_play(
     c: sqlite3.Connection,
     game_id: int,
@@ -520,6 +538,7 @@ def log_play(
     duration_minutes: Optional[int] = None,
     scores: Optional[str] = None,
 ) -> int:
+    ensure_players_as_members(c, player_names)
     cur = c.execute(
         "INSERT INTO plays (game_id, played_at, player_names, winner, notes, duration_minutes, scores) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -544,6 +563,7 @@ def update_play(
     duration_minutes: Optional[int] = None,
     scores: Optional[str] = None,
 ) -> None:
+    ensure_players_as_members(c, player_names)
     c.execute(
         "UPDATE plays SET game_id=?, played_at=?, player_names=?, winner=?, notes=?, "
         "duration_minutes=?, scores=? WHERE id=?",
