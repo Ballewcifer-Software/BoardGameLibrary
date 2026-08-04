@@ -32,8 +32,8 @@
 <div class="status-banner {% if loan %}status-out{% if loan.overdue %} status-overdue{% endif %}{% else %}status-in{% endif %}">
   {% if loan %}
     {% if loan.overdue %}⚠ OVERDUE{% else %}Checked Out{% endif %}
-    — {{ loan.first_name }} {{ loan.last_name }} since {{ loan.checked_out_at[:10] }}
-    {% if loan.due_date %} · Due {{ loan.due_date }}{% endif %}
+    — {{ loan.first_name }} {{ loan.last_name }} since {{ loan.checked_out_at|usdate }}
+    {% if loan.due_date %} · Due {{ loan.due_date|usdate }}{% endif %}
     <form method="post" action="/games/{{ game.bgg_id }}/checkin" style="display:inline;margin-left:12px">
       <button class="btn btn-sm btn-light">Check In</button>
     </form>
@@ -62,7 +62,7 @@
   <h2 class="section-title">Play Statistics</h2>
   <div class="stat-row">
     <div><strong>{{ stats.count }}</strong><br><span class="muted">Times played</span></div>
-    <div><strong>{{ stats.last_played }}</strong><br><span class="muted">Last played</span></div>
+    <div><strong>{{ stats.last_played|usdate }}</strong><br><span class="muted">Last played</span></div>
     {% if stats.avg_duration %}<div><strong>{{ stats.avg_duration }} min</strong><br><span class="muted">Avg duration</span></div>{% endif %}
   </div>
   {% if stats.win_counts %}
@@ -101,7 +101,7 @@
     <tbody>
       {% for p in plays %}
       <tr>
-        <td class="center">{{ p.played_at[:10] }}</td>
+        <td class="center">{{ p.played_at|usdate }}</td>
         <td>{{ p.player_names or '—' }}</td>
         <td>{{ p.winner or '—' }}</td>
         <td class="center">{{ p.duration_minutes ~ ' min' if p.duration_minutes else '—' }}</td>

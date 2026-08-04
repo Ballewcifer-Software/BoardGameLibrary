@@ -6,6 +6,7 @@ Then open  http://localhost:5000  on any device on the same Wi-Fi.
 """
 from __future__ import annotations
 
+import json
 import os
 import random
 import sys
@@ -54,6 +55,17 @@ def _row_to_dict(row):
     if row is None:
         return None
     return dict(zip(row.keys(), tuple(row)))
+
+
+@app.template_filter("usdate")
+def _usdate(iso):
+    """Format an ISO date/timestamp for display as US-style MM/DD/YYYY, no time."""
+    if not iso:
+        return ""
+    try:
+        return datetime.fromisoformat(iso).strftime("%m/%d/%Y")
+    except ValueError:
+        return iso
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -804,6 +816,139 @@ def sync():
 @app.route("/api/sync_status")
 def sync_status():
     return jsonify(_sync_status)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Backup export / import — same JSON schema as Desktop's "Export for Mobile"
+# and the mobile app's own backup, so files are interchangeable between all
+# three platforms.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/backup/export")
+def backup_export():
+    with db.connect() as c:
+        members = [dict(r) for r in c.execute("SELECT * FROM users ORDER BY id").fetchall()]
+        plays = [dict(r) for r in c.execute(
+            """SELECT plays.*, games.name AS game_name
+               FROM plays
+               LEFT JOIN games ON games.bgg_id = plays.game_id
+               ORDER BY plays.played_at DESC""").fetchall()]
+        loans = [dict(r) for r in c.execute(
+            """SELECT loans.*, games.name AS game_name,
+                      users.first_name, users.last_name
+               FROM loans
+               LEFT JOIN games ON games.bgg_id = loans.game_id
+               LEFT JOIN users ON users.id = loans.user_id
+               ORDER BY loans.checked_out_at DESC""").fetchall()]
+        customisations = [dict(r) for r in c.execute(
+            """SELECT bgg_id, name, tags, is_favorite, has_insert,
+                      my_comment, my_rating, manual_fields
+               FROM games
+               WHERE tags IS NOT NULL OR is_favorite = 1 OR has_insert = 1
+                  OR my_comment IS NOT NULL OR my_rating IS NOT NULL
+               """).fetchall()]
+
+    payload = {
+        "version": 1,
+        "exported_at": db.now_iso(),
+        "members": members,
+        "plays": plays,
+        "loans": loans,
+        "customisations": customisations,
+    }
+    body = json.dumps(payload, indent=2, default=str)
+    filename = f"bgl-backup-{datetime.now():%Y-%m-%d}.json"
+    return Response(
+        body,
+        mimetype="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@app.route("/backup/import", methods=["POST"])
+def backup_import():
+    file = request.files.get("backup_file")
+    if not file or not file.filename:
+        flash("No file selected.", "error")
+        return redirect(url_for("dashboard"))
+    try:
+        data = json.load(file.stream)
+    except Exception:
+        flash("Could not read that file — is it a valid backup JSON?", "error")
+        return redirect(url_for("dashboard"))
+    if not data.get("version") or not data.get("members"):
+        flash("This doesn't appear to be a Board Game Library backup.", "error")
+        return redirect(url_for("dashboard"))
+
+    counts = {"members": 0, "plays": 0, "loans": 0, "customisations": 0, "skipped": 0}
+    with db.connect() as c:
+        # Members — map old ids -> local ids so loans/plays resolve correctly.
+        user_id_map: dict[int, int] = {}
+        for m in data.get("members") or []:
+            row = c.execute(
+                "SELECT id FROM users WHERE first_name = ? AND last_name = ?",
+                (m.get("first_name"), m.get("last_name")),
+            ).fetchone()
+            if row:
+                user_id_map[m["id"]] = row["id"]
+                counts["skipped"] += 1
+            else:
+                new_id = db.add_user(c, m.get("first_name") or "", m.get("last_name") or "")
+                user_id_map[m["id"]] = new_id
+                counts["members"] += 1
+
+        for p in data.get("plays") or []:
+            exists = c.execute(
+                "SELECT id FROM plays WHERE game_id = ? AND played_at = ?",
+                (p.get("game_id"), p.get("played_at")),
+            ).fetchone()
+            if exists or not db.get_game(c, p.get("game_id")):
+                counts["skipped"] += 1
+                continue
+            db.log_play(
+                c, p["game_id"], p["played_at"],
+                p.get("player_names") or "", p.get("winner") or "", p.get("notes") or "",
+                duration_minutes=p.get("duration_minutes"), scores=p.get("scores"),
+            )
+            counts["plays"] += 1
+
+        for l in data.get("loans") or []:
+            mapped_user_id = user_id_map.get(l.get("user_id"), l.get("user_id"))
+            exists = c.execute(
+                "SELECT id FROM loans WHERE game_id = ? AND checked_out_at = ?",
+                (l.get("game_id"), l.get("checked_out_at")),
+            ).fetchone()
+            if exists or not db.get_game(c, l.get("game_id")):
+                counts["skipped"] += 1
+                continue
+            c.execute(
+                "INSERT INTO loans (game_id, user_id, checked_out_at, returned_at, due_date, notes) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (l["game_id"], mapped_user_id, l["checked_out_at"],
+                 l.get("returned_at"), l.get("due_date"), l.get("notes")),
+            )
+            counts["loans"] += 1
+
+        for cu in data.get("customisations") or []:
+            if not db.get_game(c, cu.get("bgg_id")):
+                counts["skipped"] += 1
+                continue
+            c.execute(
+                "UPDATE games SET tags=?, is_favorite=?, has_insert=?, "
+                "my_comment=?, my_rating=?, manual_fields=? WHERE bgg_id=?",
+                (cu.get("tags"), cu.get("is_favorite") or 0, cu.get("has_insert") or 0,
+                 cu.get("my_comment"), cu.get("my_rating"), cu.get("manual_fields"),
+                 cu["bgg_id"]),
+            )
+            counts["customisations"] += 1
+
+    flash(
+        f"Import complete — Members: +{counts['members']}, Plays: +{counts['plays']}, "
+        f"Loans: +{counts['loans']}, Customisations: {counts['customisations']}, "
+        f"Skipped (already existed): {counts['skipped']}",
+        "success",
+    )
+    return redirect(url_for("dashboard"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -20,12 +20,14 @@
   {% for u in users %}
   <div class="member-card"
        data-name="{{ u.first_name }} {{ u.last_name }}"
+       data-last="{{ u.last_name }}"
+       data-first="{{ u.first_name }}"
        data-since="{{ u.created_at }}"
        data-out="{{ open_map.get(u.id, [])|length }}">
     <div class="member-avatar">{{ u.first_name[0] }}{{ u.last_name[0] }}</div>
     <div class="member-info">
       <div class="member-name">{{ u.first_name }} {{ u.last_name }}</div>
-      <div class="muted" style="font-size:.8rem">Member since {{ u.created_at[:10] }}</div>
+      <div class="muted" style="font-size:.8rem">Member since {{ u.created_at|usdate }}</div>
       {% set games_out = open_map.get(u.id, []) %}
       {% if games_out %}
         <div class="muted" style="font-size:.8rem">Has out: {{ games_out|join(', ') }}</div>

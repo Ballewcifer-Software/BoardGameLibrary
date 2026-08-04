@@ -81,6 +81,40 @@ document.addEventListener('keydown', e => {
 });
 
 // ── BGG game search ────────────────────────────────────────────────────────
+
+// Renders a list of BGG search results as keyboard-and-screen-reader-accessible
+// "buttons" (role="button" + tabindex + Enter/Space activation), shared by the
+// Add Game modal and the Log Play "search BGG" flow.
+function renderSearchResults(container, items, onSelect, extraHint) {
+  container.innerHTML = '';
+  items.forEach(g => {
+    const div = document.createElement('div');
+    div.className = 'search-result-item';
+    div.setAttribute('role', 'button');
+    div.setAttribute('tabindex', '0');
+    div.setAttribute('aria-label', g.name + (g.year ? ` (${g.year})` : ''));
+    div.appendChild(document.createTextNode(g.name));
+    if (g.year) {
+      const yr = document.createElement('span');
+      yr.className = 'search-result-year';
+      yr.textContent = ` (${g.year})`;
+      div.appendChild(yr);
+    }
+    if (extraHint) {
+      const hint = document.createElement('small');
+      hint.className = 'muted';
+      hint.textContent = ' ' + extraHint;
+      div.appendChild(hint);
+    }
+    const activate = () => onSelect(g);
+    div.addEventListener('click', activate);
+    div.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+    });
+    container.appendChild(div);
+  });
+}
+
 async function bggSearch() {
   const input   = document.getElementById('bgg-search-input');
   const results = document.getElementById('bgg-search-results');
@@ -103,12 +137,7 @@ async function bggSearch() {
       return;
     }
 
-    results.innerHTML = data.map(g => `
-      <div class="search-result-item" onclick="bggSelectGame(${g.id}, ${JSON.stringify(g.name).replace(/'/g,"&#39;")})">
-        ${g.name}
-        ${g.year ? `<span class="search-result-year">(${g.year})</span>` : ''}
-      </div>
-    `).join('');
+    renderSearchResults(results, data, g => bggSelectGame(g.id, g.name));
   } catch(e) {
     results.innerHTML = `<p class="muted" style="padding:8px;color:#b71c1c">Search failed: ${e}</p>`;
   }
@@ -264,7 +293,10 @@ function sortMemberList(by) {
   cards.sort((a, b) => {
     if (by === 'since') return (a.dataset.since || '').localeCompare(b.dataset.since || '');
     if (by === 'out')   return (parseInt(b.dataset.out, 10) || 0) - (parseInt(a.dataset.out, 10) || 0);
-    return (a.dataset.name || '').toLowerCase().localeCompare((b.dataset.name || '').toLowerCase());
+    // 'name' sorts by last name, then first — matches the server's default order.
+    const aKey = `${(a.dataset.last || '').toLowerCase()} ${(a.dataset.first || '').toLowerCase()}`;
+    const bKey = `${(b.dataset.last || '').toLowerCase()} ${(b.dataset.first || '').toLowerCase()}`;
+    return aKey.localeCompare(bKey);
   });
   cards.forEach(c => list.appendChild(c));
 }

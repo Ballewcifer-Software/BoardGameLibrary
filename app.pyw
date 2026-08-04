@@ -290,7 +290,7 @@ def fmt_date(iso: Optional[str]) -> str:
     if not iso:
         return ""
     try:
-        return datetime.fromisoformat(iso).strftime("%Y-%m-%d %H:%M")
+        return datetime.fromisoformat(iso).strftime("%m/%d/%Y")
     except ValueError:
         return iso
 
@@ -402,7 +402,7 @@ def _date_entry(parent, textvariable: tk.StringVar, width: int = 12, **kw):
     if _HAVE_CAL:
         from datetime import date as _date
 
-        de = _DateEntry(parent, date_pattern="yyyy-mm-dd", width=width, **kw)
+        de = _DateEntry(parent, date_pattern="mm/dd/yyyy", width=width, **kw)
 
         # Initialise from the StringVar's current value
         initial = textvariable.get()
@@ -527,6 +527,10 @@ class App(tk.Tk):
         self._sort_col: Optional[str] = None
         self._sort_rev: bool = False
         self._tv_sort_state: dict = {}   # id(treeview) -> (col, reverse) for _make_sortable()
+        self._tv_rawdata: dict = {}      # id(treeview) -> {iid: {col: real_sort_key}}, for columns
+                                          # whose displayed text isn't itself sortable (e.g. a
+                                          # combined "First Last" column sorted by last name, or a
+                                          # US-format date column sorted by its underlying ISO value)
         self._table_games: list = []
         self._card_games: list = []      # full ordered list backing the card view
         self._cards_rendered: int = 0    # how many card widgets are built (batched)
@@ -1336,8 +1340,8 @@ class App(tk.Tk):
             tree.tag_configure("overdue", foreground=C_DR_TEXT,
                                font=self.FONTS["body_strong"])
             for row in checked_out:
-                since = row["checked_out_at"][:10]
-                due   = row["due_date"] or "—"
+                since = fmt_date(row["checked_out_at"])
+                due   = fmt_date(row["due_date"]) or "—"
                 borrower = f"{row['first_name']} {row['last_name']}".strip()
                 overdue = (row["due_date"] and row["due_date"] < str(today))
                 tree.insert("", "end", values=(row["game_name"], borrower, since, due),
@@ -1480,6 +1484,9 @@ class App(tk.Tk):
         self.games_tree.bind("<Double-1>",  self._on_table_double_click)
         self.games_tree.bind("<Return>",    self._on_table_return)
         self.games_tree.bind("<Button-3>",  self._on_table_right_click)
+        # Keyboard equivalent of right-click, for users who can't/don't use a mouse.
+        self.games_tree.bind("<App>",       self._on_table_menu_key)
+        self.games_tree.bind("<Shift-F10>", self._on_table_menu_key)
 
         # Row colour tags
         self.games_tree.tag_configure("out",       background=C_WN_BG)
@@ -1659,11 +1666,20 @@ class App(tk.Tk):
 
     def _make_collection_tab(self, text: str, col_id: Optional[int]) -> None:
         lbl = tk.Label(self._collection_bar, text=text, padx=10, pady=3,
-                       cursor="hand2", font=("Segoe UI", 9, "bold"))
+                       cursor="hand2", font=("Segoe UI", 9, "bold"),
+                       takefocus=1, highlightthickness=2, highlightcolor=C_BLUE_700)
         lbl.pack(side="left", padx=(0, self.SP["xs"]))
-        lbl.bind("<Button-1>", lambda *_e, cid=col_id: self._on_select_collection(cid))
+        _select = lambda *_e, cid=col_id: self._on_select_collection(cid)
+        lbl.bind("<Button-1>", _select)
+        lbl.bind("<Return>", _select)
+        lbl.bind("<space>", _select)
         if col_id is not None:
             lbl.bind("<Button-3>", lambda e, cid=col_id: self._collection_menu(e, cid))
+            # Keyboard equivalent of right-click (rename/claim/remove menu).
+            def _menu_key(e, cid=col_id, w=lbl):
+                self._collection_menu_at(w.winfo_rootx(), w.winfo_rooty() + w.winfo_height(), cid)
+            lbl.bind("<App>", _menu_key)
+            lbl.bind("<Shift-F10>", _menu_key)
         self._tab_widgets[col_id] = lbl
 
     def _update_collection_highlight(self) -> None:
@@ -1709,6 +1725,9 @@ class App(tk.Tk):
             self._other_cb.pack_forget()
 
     def _collection_menu(self, event, col_id: int) -> None:
+        self._collection_menu_at(event.x_root, event.y_root, col_id)
+
+    def _collection_menu_at(self, x_root: int, y_root: int, col_id: int) -> None:
         menu = tk.Menu(self, tearoff=0)
         menu.add_command(label="Rename…", command=lambda: self._rename_collection(col_id))
         owner = next((col["owner_user_id"] for col in self._collections
@@ -1720,7 +1739,7 @@ class App(tk.Tk):
                              command=lambda: self._claim_collection(col_id, clear=True))
         menu.add_separator()
         menu.add_command(label="Remove collection", command=lambda: self._delete_collection(col_id))
-        menu.tk_popup(event.x_root, event.y_root)
+        menu.tk_popup(x_root, y_root)
 
     def _claim_collection(self, col_id: int, clear: bool = False) -> None:
         if clear:
@@ -2182,8 +2201,8 @@ class App(tk.Tk):
             lbl = tk.Label(
                 self._alpha_bar,
                 text=letter,
-                font=("Segoe UI", 7, "bold" if active else "normal"),
-                fg=C_BLUE_600 if active else C_LINE_200,
+                font=("Segoe UI", 9, "bold" if active else "normal"),
+                fg=C_BLUE_600 if active else C_INK_600,
                 bg=C_BG,
                 cursor="hand2" if active else "",
                 pady=1, padx=2,
@@ -2311,7 +2330,11 @@ class App(tk.Tk):
             tree.heading(c, text=lbl + arrow)
 
     def _apply_sort(self, tree: ttk.Treeview, col: str, reverse: bool) -> None:
+        raw = self._tv_rawdata.get(id(tree), {})
         def keyfn(iid):
+            row = raw.get(iid)
+            if row is not None and col in row:
+                return (0, row[col])
             v = tree.set(iid, col)
             try:
                 return (0, float(v))
@@ -2367,9 +2390,27 @@ class App(tk.Tk):
         row = self.games_tree.identify_row(event.y)
         if not row:
             return
-        # Right-clicking a row that's already part of a multi-row selection
-        # keeps that selection (so the bulk menu applies to all of them);
-        # right-clicking outside it collapses the selection to just that row.
+        self._show_table_context_menu(row, event.x_root, event.y_root)
+
+    def _on_table_menu_key(self, event: tk.Event) -> None:
+        """Keyboard equivalent of right-click (Menu key / Shift+F10) — opens the
+        same context menu for the focused row, anchored under that row instead
+        of the mouse cursor."""
+        row = self.games_tree.focus() or (self.games_tree.selection() or (None,))[0]
+        if not row:
+            return
+        bbox = self.games_tree.bbox(row)
+        if not bbox:
+            return
+        x_root = self.games_tree.winfo_rootx() + bbox[0] + 20
+        y_root = self.games_tree.winfo_rooty() + bbox[1] + bbox[3]
+        self._show_table_context_menu(row, x_root, y_root)
+
+    def _show_table_context_menu(self, row: str, x_root: int, y_root: int) -> None:
+        # Right-clicking (or keyboard-menu-ing) a row that's already part of a
+        # multi-row selection keeps that selection (so the bulk menu applies to
+        # all of them); triggering outside it collapses the selection to just
+        # that row.
         if row not in self.games_tree.selection():
             self.games_tree.selection_set(row)
         sel = self.games_tree.selection()
@@ -2381,7 +2422,7 @@ class App(tk.Tk):
                               command=lambda: self._bulk_set_insert(games, True))
             menu.add_command(label=f"Clear 3D Insert on {len(games)} Games",
                               command=lambda: self._bulk_set_insert(games, False))
-            menu.tk_popup(event.x_root, event.y_root)
+            menu.tk_popup(x_root, y_root)
             return
 
         game = next((g for g in self._table_games if g["bgg_id"] == int(row)), None)
@@ -2410,7 +2451,7 @@ class App(tk.Tk):
         self._add_collection_remove_item(menu, game)
         menu.add_separator()
         menu.add_command(label="Delete Game…", command=lambda: self.on_delete_game(game))
-        menu.tk_popup(event.x_root, event.y_root)
+        menu.tk_popup(x_root, y_root)
 
     def _bulk_set_insert(self, games: list, value: bool) -> None:
         with db.connect() as c:
@@ -2525,13 +2566,22 @@ class App(tk.Tk):
         _star_lbl = tk.Label(
             status_row, text="★" if is_fav else "☆",
             bg=C_SURFACE, fg=C_STAR_FILL if is_fav else C_INK_500,
-            font=("Segoe UI", 17, "bold"), cursor="hand2", padx=SP["sm"])
+            font=("Segoe UI", 17, "bold"), cursor="hand2", padx=SP["sm"],
+            takefocus=1, highlightthickness=2, highlightbackground=C_SURFACE,
+            highlightcolor=C_BLUE_600)
         _star_lbl.pack(side="right")
-        _star_lbl.bind("<Button-1>", lambda e, g=game: self.on_toggle_favorite(g))
+        _toggle_fav = lambda e=None, g=game: self.on_toggle_favorite(g)
+        _star_lbl.bind("<Button-1>", _toggle_fav)
+        _star_lbl.bind("<Return>", _toggle_fav)
+        _star_lbl.bind("<space>", _toggle_fav)
+        # tk.Label has no built-in focus ring — draw one ourselves so keyboard
+        # users can see where focus is (the star is otherwise mouse-only-looking).
+        _star_lbl.bind("<FocusIn>", lambda e, w=_star_lbl: w.configure(highlightbackground=C_BLUE_600))
+        _star_lbl.bind("<FocusOut>", lambda e, w=_star_lbl: w.configure(highlightbackground=C_SURFACE))
 
         # Loaned-to line: "To Name · due Date" (prototype: 13px ink-600)
         if out_to:
-            due_txt = f" · due {due}" if due else ""
+            due_txt = f" · due {fmt_date(due)}" if due else ""
             tk.Label(body, text=f"To {out_to}{due_txt}",
                      bg=C_SURFACE, fg=C_INK_600,
                      font=self.FONTS["loaned_to"],
@@ -2690,7 +2740,7 @@ class App(tk.Tk):
         if not loan:
             return
         name = f"{loan['first_name']} {loan['last_name']}"
-        due  = loan["due_date"] or "no due date set"
+        due  = fmt_date(loan["due_date"]) or "no due date set"
         messagebox.showinfo(
             "Remind borrower",
             f"\"{game['name']}\" is overdue.\n\n"
@@ -2791,12 +2841,14 @@ class App(tk.Tk):
         self.members_tree.column("since", width=160, anchor="center")
         self.members_tree.pack(fill="both", expand=True, pady=(SP["md"], 0))
         self.members_tree.bind("<Double-1>", self._on_member_double_click)
+        self.members_tree.bind("<Return>",   self._on_member_return)
 
         ttk.Label(frame, text="Double-click a member to see their checkout history.",
                   style="Muted.TLabel").pack(anchor="w", pady=(SP["xs"], 0))
 
     def refresh_members(self) -> None:
         self.members_tree.delete(*self.members_tree.get_children())
+        self._tv_rawdata[id(self.members_tree)] = {}
         with db.connect() as c:
             users = db.list_users(c)
             counts = {
@@ -2806,12 +2858,19 @@ class App(tk.Tk):
                 )
             }
         for u in users:
+            iid = str(u["id"])
             self.members_tree.insert(
                 "",
                 "end",
-                iid=str(u["id"]),
+                iid=iid,
                 values=(f"{u['first_name']} {u['last_name']}", counts.get(u["id"], 0), fmt_date(u["created_at"])),
             )
+            # Sort "Name" by last name (then first), and "Member since" by its
+            # real ISO timestamp — both differ from what's actually displayed.
+            self._tv_rawdata[id(self.members_tree)][iid] = {
+                "name": (u["last_name"].lower(), u["first_name"].lower()),
+                "since": u["created_at"] or "",
+            }
         self._reapply_sort(self.members_tree, self._members_headings)
 
     def on_add_member(self) -> None:
@@ -2854,6 +2913,14 @@ class App(tk.Tk):
 
     def _on_member_double_click(self, event: tk.Event) -> None:
         row = self.members_tree.identify_row(event.y)
+        if not row:
+            return
+        self.members_tree.selection_set(row)
+        self._show_member_checkouts(int(row))
+
+    def _on_member_return(self, event: tk.Event) -> None:
+        """Keyboard equivalent of double-click — opens the focused member's history."""
+        row = self.members_tree.focus() or (self.members_tree.selection() or (None,))[0]
         if not row:
             return
         self.members_tree.selection_set(row)
@@ -3008,6 +3075,10 @@ class App(tk.Tk):
         self.history_tree.pack(fill="both", expand=True, pady=(SP["md"], 0))
         self.history_tree.bind("<Double-1>", self._on_history_double_click)
         self.history_tree.bind("<Button-3>", self._on_history_right_click)
+        self.history_tree.bind("<Return>",   self._on_history_return)
+        # Keyboard equivalent of right-click, for users who can't/don't use a mouse.
+        self.history_tree.bind("<App>",       self._on_history_menu_key)
+        self.history_tree.bind("<Shift-F10>", self._on_history_menu_key)
         ttk.Label(self._hist_checkouts_pane,
                   text="Double-click or right-click a row to edit check-out / check-in details.",
                   style="Muted.TLabel").pack(anchor="w", pady=(SP["xs"], 0))
@@ -3049,6 +3120,7 @@ class App(tk.Tk):
 
     def refresh_history(self) -> None:
         self.history_tree.delete(*self.history_tree.get_children())
+        self._tv_rawdata[id(self.history_tree)] = {}
         with db.connect() as c:
             rows = db.loan_history(c)
         today = datetime.now().date()
@@ -3058,18 +3130,19 @@ class App(tk.Tk):
                 continue
             if f == "closed" and r["returned_at"] is None:
                 continue
-            due_str = r["due_date"] or "—"
+            due_str = fmt_date(r["due_date"]) or "—"
             overdue = (
                 r["returned_at"] is None
                 and r["due_date"]
                 and r["due_date"] < str(today)
             )
             if overdue:
-                due_str = f"⚠ {r['due_date']}"
+                due_str = f"⚠ {fmt_date(r['due_date'])}"
+            iid = str(r["id"])
             self.history_tree.insert(
                 "",
                 "end",
-                iid=str(r["id"]),
+                iid=iid,
                 values=(
                     r["game_name"],
                     f"{r['first_name']} {r['last_name']}",
@@ -3080,6 +3153,14 @@ class App(tk.Tk):
                 ),
                 tags=("overdue",) if overdue else (),
             )
+            # Sort "Member" by last name, and the three date columns by their
+            # real ISO values (the displayed text is US-format and/or decorated).
+            self._tv_rawdata[id(self.history_tree)][iid] = {
+                "member": (r["last_name"].lower(), r["first_name"].lower()),
+                "out": r["checked_out_at"] or "",
+                "due": r["due_date"] or "",
+                "returned": r["returned_at"] or "",
+            }
         self._reapply_sort(self.history_tree, self._history_headings)
 
     def _set_history_mode(self, mode: str) -> None:
@@ -3105,24 +3186,23 @@ class App(tk.Tk):
 
     def _refresh_history_plays(self) -> None:
         self.history_plays_tree.delete(*self.history_plays_tree.get_children())
+        self._tv_rawdata[id(self.history_plays_tree)] = {}
         with db.connect() as c:
             rows = db.list_plays(c)
         for r in rows:
             duration = f"{r['duration_minutes']} min" if r["duration_minutes"] else "—"
-            # Plays are date-only events — drop any midnight time component.
-            played = fmt_date(r["played_at"])
-            if played.endswith(" 00:00"):
-                played = played[:-6]
-            self.history_plays_tree.insert(
+            iid = self.history_plays_tree.insert(
                 "", "end",
                 values=(
                     r["game_name"],
-                    played,
+                    fmt_date(r["played_at"]),
                     r["player_names"] or "",
                     r["winner"] or "—",
                     duration,
                 ),
             )
+            # Sort "Date" by its real ISO value (the displayed text is US-format).
+            self._tv_rawdata[id(self.history_plays_tree)][iid] = {"date": r["played_at"] or ""}
         self._reapply_sort(self.history_plays_tree, self._history_plays_headings)
 
     def _on_history_double_click(self, event: tk.Event) -> None:
@@ -3132,10 +3212,33 @@ class App(tk.Tk):
         self.history_tree.selection_set(row)
         self._edit_loan(int(row))
 
+    def _on_history_return(self, event: tk.Event) -> None:
+        """Keyboard equivalent of double-click — edits the focused row."""
+        row = self.history_tree.focus() or (self.history_tree.selection() or (None,))[0]
+        if not row:
+            return
+        self.history_tree.selection_set(row)
+        self._edit_loan(int(row))
+
     def _on_history_right_click(self, event: tk.Event) -> None:
         row = self.history_tree.identify_row(event.y)
         if not row:
             return
+        self._show_history_context_menu(row, event.x_root, event.y_root)
+
+    def _on_history_menu_key(self, event: tk.Event) -> None:
+        """Keyboard equivalent of right-click (Menu key / Shift+F10)."""
+        row = self.history_tree.focus() or (self.history_tree.selection() or (None,))[0]
+        if not row:
+            return
+        bbox = self.history_tree.bbox(row)
+        if not bbox:
+            return
+        x_root = self.history_tree.winfo_rootx() + bbox[0] + 20
+        y_root = self.history_tree.winfo_rooty() + bbox[1] + bbox[3]
+        self._show_history_context_menu(row, x_root, y_root)
+
+    def _show_history_context_menu(self, row: str, x_root: int, y_root: int) -> None:
         self.history_tree.selection_set(row)
         loan_id = int(row)
         with db.connect() as c:
@@ -3154,7 +3257,7 @@ class App(tk.Tk):
                 command=lambda lid=loan_id: self._loan_mark_out(lid),
             )
         menu.add_command(label="Edit details…", command=lambda lid=loan_id: self._edit_loan(lid))
-        menu.tk_popup(event.x_root, event.y_root)
+        menu.tk_popup(x_root, y_root)
 
     def _loan_mark_returned(self, loan_id: int) -> None:
         with db.connect() as c:
@@ -4482,7 +4585,7 @@ class App(tk.Tk):
         _AutocompleteEntry(dlg, _existing_tag_list, textvariable=tags_var,
                            width=34).grid(row=9, column=1, **rpad)
         ttk.Label(dlg, text="Comma-separated, e.g. Party, Family, Filler",
-                  foreground=C_INK_500, font=("Segoe UI", 7),
+                  foreground=C_INK_500, font=("Segoe UI", 8),
                   ).grid(row=10, column=1, sticky="w", padx=(4, 12), pady=(0, 2))
 
         ttk.Label(dlg, text="Description",
@@ -5091,6 +5194,7 @@ class App(tk.Tk):
         self.plays_tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="left", fill="y")
         self.plays_tree.bind("<Double-1>", lambda *_: self.on_edit_play())
+        self.plays_tree.bind("<Return>",   lambda *_: self.on_edit_play())
 
         # ── Leaderboard pane (hidden until toggled) ──────────────────────
         self._lb_pane = ttk.Frame(frame)
@@ -5260,6 +5364,7 @@ class App(tk.Tk):
 
     def refresh_plays(self) -> None:
         self.plays_tree.delete(*self.plays_tree.get_children())
+        self._tv_rawdata[id(self.plays_tree)] = {}
 
         # Refresh the game-filter combobox list.
         with db.connect() as c:
@@ -5279,12 +5384,13 @@ class App(tk.Tk):
 
         for r in rows:
             dur = f"{r['duration_minutes']} min" if r["duration_minutes"] else ""
+            iid = str(r["id"])
             self.plays_tree.insert(
                 "", "end",
-                iid=str(r["id"]),
+                iid=iid,
                 values=(
                     r["game_name"],
-                    r["played_at"][:10],
+                    fmt_date(r["played_at"]),
                     r["player_names"] or "",
                     r["winner"] or "",
                     dur,
@@ -5292,6 +5398,8 @@ class App(tk.Tk):
                     r["notes"] or "",
                 ),
             )
+            # Sort "Date" by its real ISO value (the displayed text is US-format).
+            self._tv_rawdata[id(self.plays_tree)][iid] = {"date": r["played_at"] or ""}
         self._reapply_sort(self.plays_tree, self._plays_headings)
 
         # Keep leaderboard in sync if it's currently visible
@@ -5426,7 +5534,7 @@ class App(tk.Tk):
         scores_entry = ttk.Entry(dialog, textvariable=scores_var, width=36)
         scores_entry.grid(row=5, column=1, **pad)
         ttk.Label(dialog, text='e.g. "Alice: 45, Bob: 37" — highest score auto-sets winner',
-                  foreground=C_INK_500, font=("Segoe UI", 7),
+                  foreground=C_INK_500, font=("Segoe UI", 8),
                   ).grid(row=6, column=1, sticky="w", padx=12, pady=(0, 2))
 
         def _auto_winner_from_scores(*_) -> None:
@@ -5732,7 +5840,7 @@ class App(tk.Tk):
 
             stat_items = [
                 ("Times played",  str(play_stats["count"])),
-                ("Last played",   play_stats["last_played"]),
+                ("Last played",   fmt_date(play_stats["last_played"])),
             ]
             if play_stats["avg_duration"]:
                 stat_items.append(("Avg duration", f"{play_stats['avg_duration']} min"))

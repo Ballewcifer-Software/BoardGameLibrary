@@ -2,6 +2,8 @@
 {% block title %}Dashboard — BGL{% endblock %}
 {% block content %}
 
+<h1 class="sr-only">Dashboard</h1>
+
 <!-- Stat cards -->
 <div class="stat-grid">
   <a href="/games" class="stat-card" style="--c:#1a237e">
@@ -33,8 +35,8 @@
       <tr {% if loan.overdue %}class="overdue"{% endif %}>
         <td>{{ loan.game_name }}</td>
         <td>{{ loan.first_name }} {{ loan.last_name }}</td>
-        <td class="center">{{ loan.checked_out_at[:10] }}</td>
-        <td class="center">{{ loan.due_date or '—' }}</td>
+        <td class="center">{{ loan.checked_out_at|usdate }}</td>
+        <td class="center">{{ loan.due_date|usdate or '—' }}</td>
         <td>
           <form method="post" action="/history/{{ loan.id }}/return_now" style="display:inline">
             <button class="btn btn-sm btn-outline">Return</button>
@@ -56,7 +58,7 @@
       <ul class="simple-list">
         {% for r in recent %}
           <li>
-            <span class="muted">{{ r.played_at[:10] }}</span>
+            <span class="muted">{{ r.played_at|usdate }}</span>
             {{ r.game_name }}
             {% if r.winner %}<span class="winner">🏆 {{ r.winner }}</span>{% endif %}
           </li>
@@ -96,4 +98,22 @@
   </div>
 
 </div>
+
+<!-- Backup & restore -->
+<section class="card mt">
+  <h2 class="section-title">Backup &amp; Restore</h2>
+  <p class="muted" style="font-size:.85rem">
+    Export members, plays, and loan history as a JSON file — the same format used by the Desktop
+    and mobile apps, so backups can be moved between them.
+  </p>
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:8px">
+    <a href="/backup/export" class="btn btn-secondary btn-sm">⬇ Export Backup</a>
+    <form method="post" action="/backup/import" enctype="multipart/form-data"
+          style="display:flex; align-items:center; gap:8px">
+      <label for="backup-file" class="sr-only">Choose a backup JSON file to import</label>
+      <input type="file" id="backup-file" name="backup_file" accept="application/json,.json" required>
+      <button type="submit" class="btn btn-secondary btn-sm">⬆ Import Backup</button>
+    </form>
+  </div>
+</section>
 {% endblock %}

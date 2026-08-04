@@ -39,7 +39,7 @@
 <!-- Game filter -->
 <div class="filter-bar">
   <form method="get" action="/plays" class="filter-form">
-    <select name="game_id" class="filter-select" onchange="this.form.submit()">
+    <select name="game_id" class="filter-select" onchange="this.form.submit()" aria-label="Filter by game">
       <option value="">All Games</option>
       {% for g in games %}
         <option value="{{ g.bgg_id }}" {% if filter_game==g.bgg_id %}selected{% endif %}>{{ g.name }}</option>
@@ -69,7 +69,7 @@
       {% for p in rows %}
       <tr>
         <td>{{ p.game_name }}</td>
-        <td class="center nowrap">{{ p.played_at[:10] }}</td>
+        <td class="center nowrap" data-sort="{{ p.played_at or '' }}">{{ p.played_at|usdate }}</td>
         <td>{{ p.player_names or '—' }}</td>
         <td class="center">{{ p.winner or '—' }}</td>
         <td class="center" data-sort="{{ p.duration_minutes or 0 }}">{{ p.duration_minutes ~ ' min' if p.duration_minutes else '—' }}</td>
@@ -100,7 +100,7 @@
     </div>
     <form method="post" action="/plays/add">
       <div class="modal-body">
-        <label class="form-label">Game</label>
+        <label class="form-label" for="log-game-select">Game</label>
         <select name="game_id" id="log-game-select" class="form-control" required>
           <option value="">— select —</option>
           {% for g in games %}
@@ -108,23 +108,24 @@
           {% endfor %}
         </select>
         <div class="search-row mt-sm" id="bgg-play-search-row">
+          <label for="bgg-play-query" class="sr-only">Search BGG for a game not in your library</label>
           <input type="text" id="bgg-play-query" class="search-input" placeholder="Game not listed? Search BGG…">
           <button type="button" class="btn btn-secondary btn-sm" onclick="searchBGGForPlay()">Search</button>
         </div>
         <div id="bgg-play-results" class="search-results"></div>
-        <label class="form-label mt-sm">Date Played</label>
-        <input type="date" name="played_at" class="form-control"
+        <label class="form-label mt-sm" for="lp-date">Date Played</label>
+        <input type="date" name="played_at" id="lp-date" class="form-control"
                value="{{ now.strftime('%Y-%m-%d') }}" required>
-        <label class="form-label mt-sm">Players (comma-separated)</label>
+        <label class="form-label mt-sm" for="lp-players">Players (comma-separated)</label>
         <input type="text" name="player_names" id="lp-players" class="form-control">
-        <label class="form-label mt-sm">Winner</label>
+        <label class="form-label mt-sm" for="lp-winner">Winner</label>
         <select name="winner" id="lp-winner" class="form-control"></select>
-        <label class="form-label mt-sm">Duration (minutes)</label>
-        <input type="number" name="duration_minutes" class="form-control" min="1">
-        <label class="form-label mt-sm">Scores</label>
-        <input type="text" name="scores" class="form-control" placeholder="Alice: 45, Bob: 37">
-        <label class="form-label mt-sm">Notes</label>
-        <input type="text" name="notes" class="form-control">
+        <label class="form-label mt-sm" for="lp-duration">Duration (minutes)</label>
+        <input type="number" name="duration_minutes" id="lp-duration" class="form-control" min="1">
+        <label class="form-label mt-sm" for="lp-scores">Scores</label>
+        <input type="text" name="scores" id="lp-scores" class="form-control" placeholder="Alice: 45, Bob: 37">
+        <label class="form-label mt-sm" for="lp-notes">Notes</label>
+        <input type="text" name="notes" id="lp-notes" class="form-control">
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="closeModal('modal-log-play')">Cancel</button>
@@ -143,19 +144,19 @@
     </div>
     <form id="edit-play-form" method="post" action="">
       <div class="modal-body">
-        <label class="form-label">Game</label>
+        <label class="form-label" for="ep-game">Game</label>
         <select name="game_id" id="ep-game" class="form-control" required></select>
-        <label class="form-label mt-sm">Date Played</label>
+        <label class="form-label mt-sm" for="ep-date">Date Played</label>
         <input type="date" name="played_at" id="ep-date" class="form-control" required>
-        <label class="form-label mt-sm">Players</label>
+        <label class="form-label mt-sm" for="ep-players">Players</label>
         <input type="text" name="player_names" id="ep-players" class="form-control">
-        <label class="form-label mt-sm">Winner</label>
+        <label class="form-label mt-sm" for="ep-winner">Winner</label>
         <select name="winner" id="ep-winner" class="form-control"></select>
-        <label class="form-label mt-sm">Duration (min)</label>
+        <label class="form-label mt-sm" for="ep-duration">Duration (min)</label>
         <input type="number" name="duration_minutes" id="ep-duration" class="form-control" min="1">
-        <label class="form-label mt-sm">Scores</label>
+        <label class="form-label mt-sm" for="ep-scores">Scores</label>
         <input type="text" name="scores" id="ep-scores" class="form-control">
-        <label class="form-label mt-sm">Notes</label>
+        <label class="form-label mt-sm" for="ep-notes">Notes</label>
         <input type="text" name="notes" id="ep-notes" class="form-control">
       </div>
       <div class="modal-footer">
@@ -213,11 +214,7 @@ async function searchBGGForPlay() {
     const res  = await fetch('/api/search?q=' + encodeURIComponent(q));
     const data = await res.json();
     if (!data.length) { results.innerHTML = '<p class="muted" style="padding:6px">No results.</p>'; return; }
-    results.innerHTML = data.slice(0,15).map(g => `
-      <div class="search-result-item" onclick="addBGGGameForPlay(${g.id}, ${JSON.stringify(g.name).replace(/'/g,"&#39;")})">
-        ${g.name}${g.year ? ' <span class="search-result-year">('+g.year+')</span>' : ''}
-        <small class="muted"> — tap to add &amp; select</small>
-      </div>`).join('');
+    renderSearchResults(results, data.slice(0, 15), g => addBGGGameForPlay(g.id, g.name), '— tap to add & select');
   } catch(e) { results.innerHTML = '<p style="color:#b71c1c;padding:6px">Search failed.</p>'; }
 }
 

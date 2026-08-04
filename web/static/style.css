@@ -157,7 +157,7 @@ img { max-width: 100%; display: block; }
 .simple-list li:last-child { border-bottom: none; }
 .ranked { counter-reset: rank; }
 .ranked li::before { counter-increment: rank; content: counter(rank)". "; color: var(--muted); }
-.winner { color: #b8860b; font-size: .8rem; }
+.winner { color: #8a6d00; font-size: .8rem; }
 
 /* ── Data table ───────────────────────────────────────────────────────────── */
 .data-table { width: 100%; border-collapse: collapse; font-size: .85rem; }

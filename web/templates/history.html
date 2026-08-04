@@ -20,12 +20,12 @@
 <div class="filter-bar">
   <form method="get" action="/history" class="filter-form">
     <input type="hidden" name="mode" value="checkouts">
-    <select name="status" class="filter-select">
+    <select name="status" class="filter-select" aria-label="Filter by status">
       <option value="all"      {% if status=='all'      %}selected{% endif %}>All</option>
       <option value="active"   {% if status=='active'   %}selected{% endif %}>Still Out</option>
       <option value="returned" {% if status=='returned' %}selected{% endif %}>Returned</option>
     </select>
-    <select name="user_id" class="filter-select">
+    <select name="user_id" class="filter-select" aria-label="Filter by member">
       <option value="">All Members</option>
       {% for u in users %}
         <option value="{{ u.id }}" {% if filter_user==u.id %}selected{% endif %}>
@@ -57,12 +57,12 @@
       {% for r in rows %}
       <tr class="history-row {% if r.overdue %}overdue{% endif %}" ondblclick="openEditLoan({{ r|tojson }})" title="Double-click to edit">
         <td>{{ r.game_name }}</td>
-        <td>{{ r.first_name }} {{ r.last_name }}</td>
-        <td class="center nowrap">{{ r.checked_out_at[:10] }}</td>
-        <td class="center nowrap">{{ r.due_date or '—' }}</td>
-        <td class="center nowrap" data-sort="{{ r.returned_at[:10] if r.returned_at else '' }}">
+        <td data-sort="{{ r.last_name }}, {{ r.first_name }}">{{ r.first_name }} {{ r.last_name }}</td>
+        <td class="center nowrap" data-sort="{{ r.checked_out_at or '' }}">{{ r.checked_out_at|usdate }}</td>
+        <td class="center nowrap" data-sort="{{ r.due_date or '' }}">{{ r.due_date|usdate or '—' }}</td>
+        <td class="center nowrap" data-sort="{{ r.returned_at if r.returned_at else '' }}">
           {% if r.returned_at %}
-            {{ r.returned_at[:10] }}
+            {{ r.returned_at|usdate }}
           {% else %}
             {% if r.overdue %}<span class="text-danger">OVERDUE</span>{% else %}<em class="muted">Still out</em>{% endif %}
           {% endif %}
@@ -106,7 +106,7 @@
       {% for p in plays %}
       <tr>
         <td>{{ p.game_name }}</td>
-        <td class="center nowrap">{{ p.played_at[:10] if p.played_at else '—' }}</td>
+        <td class="center nowrap" data-sort="{{ p.played_at or '' }}">{{ p.played_at|usdate if p.played_at else '—' }}</td>
         <td>{{ p.player_names or '' }}</td>
         <td class="center">{{ p.winner or '—' }}</td>
         <td class="center nowrap" data-sort="{{ p.duration_minutes or 0 }}">{{ (p.duration_minutes|string + ' min') if p.duration_minutes else '—' }}</td>
