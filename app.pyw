@@ -961,6 +961,13 @@ class App(tk.Tk):
         ttk.Button(search_row, text="Clear", style="Quiet.TButton",
                    command=lambda: self.search_var.set("")).pack(side="left", padx=(SP["xs"], 0))
 
+        # Add Game — a persistent, always-visible primary action (was
+        # previously reachable only via Library → Add Game…; mobile and web
+        # both surface it as a standing button, so the desktop toolbar
+        # should too rather than relying on the menu bar alone).
+        ttk.Button(bar, text="+ Add Game", command=self.on_add_game
+                   ).pack(side="right", padx=(0, SP["md"]))
+
         # VIEW dropdown
         view_field = ttk.Frame(bar, style="Filter.TFrame")
         view_field.pack(side="right")
