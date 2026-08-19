@@ -209,10 +209,19 @@ def fetch_collection(
     root = _fetch_xml(url, token=token, on_status=on_status, opener=opener)
 
     entries: list[CollectionEntry] = []
+    seen_ids: set[int] = set()
     for item in root.findall("item"):
         bgg_id = int(item.get("objectid", "0"))
         if not bgg_id:
             continue
+        # BGG collections can list the same objectid more than once (e.g. two
+        # of a user's collection rows get merged into the same game by BGG
+        # staff) — dedupe here so callers that report len(entries) as the
+        # synced count don't overcount versus what actually lands in the DB
+        # once duplicate bgg_ids collapse in upsert_game.
+        if bgg_id in seen_ids:
+            continue
+        seen_ids.add(bgg_id)
         name_el = item.find("name")
         year_el = item.find("yearpublished")
         image_el = item.find("image")
