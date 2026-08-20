@@ -25,8 +25,8 @@
       <option value="active"   {% if status=='active'   %}selected{% endif %}>Still Out</option>
       <option value="returned" {% if status=='returned' %}selected{% endif %}>Returned</option>
     </select>
-    <select name="user_id" class="filter-select" aria-label="Filter by member">
-      <option value="">All Members</option>
+    <select name="user_id" class="filter-select" aria-label="Filter by friend">
+      <option value="">All Friends</option>
       {% for u in users %}
         <option value="{{ u.id }}" {% if filter_user==u.id %}selected{% endif %}>
           {{ u.first_name }} {{ u.last_name }}
@@ -45,7 +45,7 @@
     <thead>
       <tr>
         <th>Game</th>
-        <th>Member</th>
+        <th>Friend</th>
         <th class="center">Checked Out</th>
         <th class="center">Due</th>
         <th class="center">Returned</th>

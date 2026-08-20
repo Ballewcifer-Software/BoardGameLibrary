@@ -327,7 +327,7 @@ function bulkSubmit(hasInsert) {
           onsubmit="return confirm('Clear the selected collections? Games kept only by them will be permanently deleted, along with their play and loan history.');">
       <div class="modal-body">
         <p class="muted" style="font-size:.85rem;margin-top:0">
-          A game is deleted only if no kept collection still has it. Members are kept.
+          A game is deleted only if no kept collection still has it. Friends are kept.
         </p>
         {% for col in collections %}
         <label class="filter-check" style="display:block;margin:6px 0">
@@ -354,7 +354,7 @@ function bulkSubmit(hasInsert) {
     <form method="post" action="/collections/claim">
       <div class="modal-body">
         <p class="muted" style="font-size:.85rem;margin-top:0">
-          The owner can check out only games from their collection. Members who
+          The owner can check out only games from their collection. Friends who
           claim nothing can borrow any game.
         </p>
         <label class="form-label" for="claim-collection">Collection</label>

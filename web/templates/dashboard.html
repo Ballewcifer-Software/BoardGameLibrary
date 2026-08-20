@@ -16,7 +16,7 @@
   </a>
   <a href="/members" class="stat-card" style="--c:#4a148c">
     <div class="stat-value">{{ summary.total_members }}</div>
-    <div class="stat-label">Members</div>
+    <div class="stat-label">Friends</div>
   </a>
   <a href="/history?status=active" class="stat-card" style="--c:{% if summary.checked_out %}#b71c1c{% else %}#37474f{% endif %}">
     <div class="stat-value">{{ summary.checked_out }}</div>
@@ -103,7 +103,7 @@
 <section class="card mt">
   <h2 class="section-title">Backup &amp; Restore</h2>
   <p class="muted" style="font-size:.85rem">
-    Export members, plays, and loan history as a JSON file — the same format used by the Desktop
+    Export friends, plays, and loan history as a JSON file — the same format used by the Desktop
     and mobile apps, so backups can be moved between them.
   </p>
   <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:8px">

@@ -198,6 +198,27 @@ def set_manual_fields(c: sqlite3.Connection, bgg_id: int, fields: set) -> None:
     )
 
 
+# BGG's own collection sort ignores a leading "The", "A", or "An" when
+# alphabetizing titles (e.g. "The Castles of Burgundy" sorts under "C") —
+# match that instead of a plain alphabetical sort.
+_NAME_SORT_KEY = """CASE
+    WHEN name LIKE 'The %' THEN SUBSTR(name, 5)
+    WHEN name LIKE 'An %'  THEN SUBSTR(name, 4)
+    WHEN name LIKE 'A %'   THEN SUBSTR(name, 3)
+    ELSE name
+  END COLLATE NOCASE"""
+
+
+def name_sort_key(name: str) -> str:
+    """Python-side equivalent of _NAME_SORT_KEY, for sorting name lists
+    outside of a SQL query (e.g. an autocomplete suggestion list)."""
+    lower = name.lower()
+    for article in ("the ", "an ", "a "):
+        if lower.startswith(article):
+            return name[len(article):].lower()
+    return name.lower()
+
+
 def list_games(c: sqlite3.Connection, search: str = "",
                owned_only: bool = True) -> list[sqlite3.Row]:
     """Return games ordered by name.
@@ -209,11 +230,11 @@ def list_games(c: sqlite3.Connection, search: str = "",
     if search:
         return c.execute(
             f"SELECT * FROM games WHERE {own_clause} AND name LIKE ?"
-            " ORDER BY name COLLATE NOCASE",
+            f" ORDER BY {_NAME_SORT_KEY}",
             (f"%{search}%",),
         ).fetchall()
     return c.execute(
-        f"SELECT * FROM games WHERE {own_clause} ORDER BY name COLLATE NOCASE"
+        f"SELECT * FROM games WHERE {own_clause} ORDER BY {_NAME_SORT_KEY}"
     ).fetchall()
 
 

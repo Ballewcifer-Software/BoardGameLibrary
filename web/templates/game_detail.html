@@ -121,7 +121,7 @@
     </div>
     <form method="post" action="/games/{{ game.bgg_id }}/checkout">
       <div class="modal-body">
-        <label class="form-label" for="co-member">Member</label>
+        <label class="form-label" for="co-member">Friend</label>
         <select id="co-member" name="user_id" class="form-control" required>
           <option value="">— select —</option>
           {% for u in users %}

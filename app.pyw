@@ -1148,10 +1148,10 @@ class App(tk.Tk):
         self.plays_tab = ttk.Frame(self.nb)
         self.dashboard_tab = ttk.Frame(self.nb)
 
-        # Tab order matches the mobile app: Dashboard, Games, Members, Plays, History
+        # Tab order matches the mobile app: Dashboard, Games, Friends, Plays, History
         self.nb.add(self.dashboard_tab, text="Dashboard")
         self.nb.add(self.games_tab, text="Games")
-        self.nb.add(self.members_tab, text="Members")
+        self.nb.add(self.members_tab, text="Friends")
         self.nb.add(self.plays_tab, text="Plays")
         self.nb.add(self.history_tab, text="History")
 
@@ -1325,7 +1325,7 @@ class App(tk.Tk):
         cards_row.pack(fill="x", pady=(0, self.SP["xs"]))
         stat_card(cards_row, "Games",       summary["total_games"],   C_NAVY_900, tab=self.games_tab)
         stat_card(cards_row, "Total Plays", summary["total_plays"],   C_OK_SOLID, tab=self.plays_tab)
-        stat_card(cards_row, "Members",     summary["total_members"], "#4A148C",  tab=self.members_tab)
+        stat_card(cards_row, "Friends",     summary["total_members"], "#4A148C",  tab=self.members_tab)
         stat_card(cards_row, "Checked Out", summary["checked_out"],
                   C_DR_SOLID if summary["checked_out"] else C_INK_600,
                   tab=self.history_tab)
@@ -1760,8 +1760,8 @@ class App(tk.Tk):
             users = db.list_users(c)
         if not users:
             messagebox.showinfo(
-                "No members",
-                "Add a member on the Members tab first, then claim the collection.")
+                "No friends",
+                "Add a friend on the Friends tab first, then claim the collection.")
             return
         win = tk.Toplevel(self)
         win.title("Claim Collection")
@@ -2816,7 +2816,7 @@ class App(tk.Tk):
         frame = ttk.Frame(self.members_tab, padding=SP["lg"])
         frame.pack(fill="both", expand=True)
 
-        ttk.Label(frame, text="Members", style="Section.TLabel").pack(anchor="w")
+        ttk.Label(frame, text="Friends", style="Section.TLabel").pack(anchor="w")
         ttk.Separator(frame, orient="horizontal").pack(fill="x", pady=(SP["xs"], SP["md"]))
 
         # Add-member form: labelled inputs, one primary + one ghost action
@@ -2832,16 +2832,16 @@ class App(tk.Tk):
         last_entry = ttk.Entry(form, textvariable=self.last_name_var, width=18)
         last_entry.pack(side="left", padx=(0, SP["md"]))
         last_entry.bind("<Return>", lambda *_: self.on_add_member())
-        ttk.Button(form, text="Add member", command=self.on_add_member).pack(side="left")
+        ttk.Button(form, text="Add friend", command=self.on_add_member).pack(side="left")
         ttk.Button(form, text="Remove selected", style="Ghost.TButton",
                    command=self.on_delete_member).pack(side="left", padx=(SP["sm"], 0))
 
         cols = ("name", "out", "since")
-        self._members_headings = {"name": "Name", "out": "Currently out", "since": "Member since"}
+        self._members_headings = {"name": "Name", "out": "Currently out", "since": "Friend since"}
         self.members_tree = ttk.Treeview(frame, columns=cols, show="headings")
         self.members_tree.heading("name", text="Name")
         self.members_tree.heading("out", text="Currently out")
-        self.members_tree.heading("since", text="Member since")
+        self.members_tree.heading("since", text="Friend since")
         self._make_sortable(self.members_tree, self._members_headings)
         self.members_tree.column("name", width=240)
         self.members_tree.column("out", width=120, anchor="center")
@@ -2850,7 +2850,7 @@ class App(tk.Tk):
         self.members_tree.bind("<Double-1>", self._on_member_double_click)
         self.members_tree.bind("<Return>",   self._on_member_return)
 
-        ttk.Label(frame, text="Double-click a member to see their checkout history.",
+        ttk.Label(frame, text="Double-click a friend to see their checkout history.",
                   style="Muted.TLabel").pack(anchor="w", pady=(SP["xs"], 0))
 
     def refresh_members(self) -> None:
@@ -2954,7 +2954,7 @@ class App(tk.Tk):
         hdr.pack(fill="x")
         tk.Label(hdr, text=name, bg=C_NAVY, fg=C_WHITE,
                  font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=12)
-        tk.Label(hdr, text=f"Member since {fmt_date(user['created_at'])}",
+        tk.Label(hdr, text=f"Friend since {fmt_date(user['created_at'])}",
                  bg=C_NAVY, fg=C_SKY,
                  font=("Segoe UI", 8)).pack(anchor="w", padx=12)
 
@@ -3060,12 +3060,12 @@ class App(tk.Tk):
 
         cols = ("game", "member", "out", "due", "returned", "notes")
         self._history_headings = {
-            "game": "Game", "member": "Member", "out": "Checked Out",
+            "game": "Game", "member": "Friend", "out": "Checked Out",
             "due": "Due", "returned": "Returned", "notes": "Notes",
         }
         self.history_tree = ttk.Treeview(self._hist_checkouts_pane, columns=cols, show="headings")
         self.history_tree.heading("game",     text="Game")
-        self.history_tree.heading("member",   text="Member")
+        self.history_tree.heading("member",   text="Friend")
         self.history_tree.heading("out",      text="Checked Out")
         self.history_tree.heading("due",      text="Due")
         self.history_tree.heading("returned", text="Returned")
@@ -3312,7 +3312,7 @@ class App(tk.Tk):
                   font=("Segoe UI", 9, "bold")).grid(row=0, column=0, columnspan=2,
                                                       sticky="w", pady=(0, 2))
         ttk.Label(frame,
-                  text=f"Member: {loan['first_name']} {loan['last_name']}",
+                  text=f"Friend: {loan['first_name']} {loan['last_name']}",
                   font=("Segoe UI", 9, "bold")).grid(row=1, column=0, columnspan=2,
                                                       sticky="w", pady=(0, 10))
 
@@ -3470,7 +3470,7 @@ class App(tk.Tk):
         ).grid(row=9, column=0, sticky="w")
         tk.Label(
             frame,
-            text="Removes games and loan history. Play history is kept\n(games with logged plays stay). Members are kept.",
+            text="Removes games and loan history. Play history is kept\n(games with logged plays stay). Friends are kept.",
             bg=C_BG, fg=C_INK_500,
             font=("Segoe UI", 8), justify="left",
         ).grid(row=9, column=1, sticky="w", padx=(12, 0))
@@ -4995,7 +4995,7 @@ class App(tk.Tk):
             all_users = db.list_users(c)
             allowed = db.members_allowed_to_checkout(c, game["bgg_id"])
         if not all_users:
-            messagebox.showinfo("No members", "Add a member on the Members tab first.")
+            messagebox.showinfo("No friends", "Add a friend on the Friends tab first.")
             self.nb.select(self.members_tab)
             return
 
@@ -5508,7 +5508,7 @@ class App(tk.Tk):
             game_id_map[name] = bgg_id
             if name not in game_names:
                 game_names.append(name)
-                game_cb.set_suggestions(sorted(game_names))
+                game_cb.set_suggestions(sorted(game_names, key=db.name_sort_key))
             game_var.set(name)
 
         ttk.Button(dialog, text="Find on BGG…", command=_find_on_bgg).grid(

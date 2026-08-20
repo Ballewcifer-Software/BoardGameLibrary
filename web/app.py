@@ -353,12 +353,12 @@ def checkout(bgg_id):
     due_date = request.form.get("due_date", "").strip() or None
     notes    = request.form.get("notes", "").strip()
     if not user_id:
-        flash("Please select a member.", "error")
+        flash("Please select a friend.", "error")
         return redirect(url_for("game_detail", bgg_id=bgg_id))
     try:
         with db.connect() as c:
             if not db.user_can_checkout(c, user_id, bgg_id):
-                flash("That member has claimed a collection and can only check out "
+                flash("That friend has claimed a collection and can only check out "
                       "games from it.", "error")
                 return redirect(url_for("game_detail", bgg_id=bgg_id))
             db.check_out(c, bgg_id, user_id, notes=notes, due_date=due_date)
@@ -458,7 +458,7 @@ def add_member():
 def delete_member(user_id):
     with db.connect() as c:
         db.delete_user(c, user_id)
-    flash("Member removed.", "success")
+    flash("Friend removed.", "success")
     return redirect(url_for("members"))
 
 

@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Members — BGL{% endblock %}
+{% block title %}Friends — BGL{% endblock %}
 {% block content %}
 
 <div class="page-header">
-  <h1 class="page-title">Members</h1>
+  <h1 class="page-title">Friends</h1>
   <div style="display:flex; align-items:center; gap:8px">
     <label class="muted" for="member-sort" style="font-size:.85rem">Sort by</label>
     <select id="member-sort" class="filter-select" onchange="sortMemberList(this.value)">
       <option value="name">Name</option>
-      <option value="since">Member since</option>
+      <option value="since">Friend since</option>
       <option value="out">Currently out</option>
     </select>
-    <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-member')">+ Add Member</button>
+    <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-member')">+ Add Friend</button>
   </div>
 </div>
 
@@ -27,7 +27,7 @@
     <div class="member-avatar">{{ u.first_name[0] }}{{ u.last_name[0] }}</div>
     <div class="member-info">
       <div class="member-name">{{ u.first_name }} {{ u.last_name }}</div>
-      <div class="muted" style="font-size:.8rem">Member since {{ u.created_at|usdate }}</div>
+      <div class="muted" style="font-size:.8rem">Friend since {{ u.created_at|usdate }}</div>
       {% set games_out = open_map.get(u.id, []) %}
       {% if games_out %}
         <div class="muted" style="font-size:.8rem">Has out: {{ games_out|join(', ') }}</div>
@@ -44,14 +44,14 @@
   {% endfor %}
 </div>
 {% else %}
-  <p class="muted mt">No members yet. Add one to enable check-outs.</p>
+  <p class="muted mt">No friends yet. Add one to enable check-outs.</p>
 {% endif %}
 
 <!-- ── Add Member modal ──────────────────────────────────────────────────── -->
 <div id="modal-add-member" class="modal-backdrop" hidden>
   <div class="modal">
     <div class="modal-header">
-      <h3>Add Member</h3>
+      <h3>Add Friend</h3>
       <button class="modal-close" onclick="closeModal('modal-add-member')">✕</button>
     </div>
     <form method="post" action="/members/add">
