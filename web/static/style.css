@@ -155,9 +155,16 @@ img { max-width: 100%; display: block; }
   display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
 }
 .simple-list li:last-child { border-bottom: none; }
+
+.recent-list li { display: block; }
+.recent-list .item-name { font-weight: 600; }
+.recent-list .item-meta { display: block; font-size: .8rem; color: var(--muted); margin-top: 2px; }
+
 .ranked { counter-reset: rank; }
-.ranked li::before { counter-increment: rank; content: counter(rank)". "; color: var(--muted); }
-.winner { color: #8a6d00; font-size: .8rem; }
+.ranked li { flex-wrap: nowrap; align-items: center; }
+.ranked li::before { counter-increment: rank; content: counter(rank); color: var(--muted); width: 18px; text-align: center; flex-shrink: 0; }
+.ranked .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranked .item-count { color: var(--muted); font-size: .8rem; flex-shrink: 0; white-space: nowrap; }
 
 /* ── Data table ───────────────────────────────────────────────────────────── */
 .data-table { width: 100%; border-collapse: collapse; font-size: .85rem; }

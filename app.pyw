@@ -1370,9 +1370,11 @@ class App(tk.Tk):
         else:
             for r in recent:
                 date = r["played_at"][:10]
-                winner = f"  🏆 {r['winner']}" if r["winner"] else ""
-                ttk.Label(lf, text=f"{date}  {r['game_name']}{winner}",
-                          font=self.FONTS["body"]).pack(anchor="w", pady=1)
+                meta = date + (f"  ·  🏆 {r['winner']}" if r["winner"] else "")
+                row = tk.Frame(lf, bg=C_BG)
+                row.pack(fill="x", pady=(0, self.SP["xs"]))
+                ttk.Label(row, text=r["game_name"], font=self.FONTS["body_strong"]).pack(anchor="w")
+                ttk.Label(row, text=meta, style="Muted.TLabel").pack(anchor="w")
 
         # Top games + top winners (right)
         rf = ttk.Frame(lower)
@@ -1382,8 +1384,13 @@ class App(tk.Tk):
             ttk.Label(rf, text="No plays yet.", style="Muted.TLabel").pack(anchor="w")
         else:
             for i, r in enumerate(top_games, 1):
-                ttk.Label(rf, text=f"{i}. {r['name']}  ({r['play_count']} play{'s' if r['play_count'] != 1 else ''})",
-                          font=self.FONTS["body"]).pack(anchor="w", pady=1)
+                row = tk.Frame(rf, bg=C_BG)
+                row.pack(fill="x", pady=1)
+                tk.Label(row, text=f"{i}.", bg=C_BG, font=self.FONTS["body_strong"],
+                         foreground=C_INK_500, width=3).pack(side="left", padx=(0, self.SP["sm"] - 2))
+                plays = r["play_count"]
+                ttk.Label(row, text=f"{r['name']}  ({plays} play{'s' if plays != 1 else ''})",
+                          font=self.FONTS["body"]).pack(side="left")
 
         section(rf, "Top Winners")
         if not top_wins:

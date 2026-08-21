@@ -55,12 +55,11 @@
   <section class="card">
     <h2 class="section-title">Recent Plays</h2>
     {% if recent %}
-      <ul class="simple-list">
+      <ul class="simple-list recent-list">
         {% for r in recent %}
           <li>
-            <span class="muted">{{ r.played_at|usdate }}</span>
-            {{ r.game_name }}
-            {% if r.winner %}<span class="winner">🏆 {{ r.winner }}</span>{% endif %}
+            <span class="item-name">{{ r.game_name }}</span>
+            <span class="item-meta">{{ r.played_at|usdate }}{% if r.winner %} · 🏆 {{ r.winner }}{% endif %}</span>
           </li>
         {% endfor %}
       </ul>
@@ -75,7 +74,7 @@
       {% if top_games %}
         <ol class="simple-list ranked">
           {% for r in top_games %}
-            <li>{{ r.name }} <span class="muted">({{ r.play_count }})</span></li>
+            <li><span class="item-name">{{ r.name }}</span><span class="item-count">{{ r.play_count }} play{{ 's' if r.play_count != 1 else '' }}</span></li>
           {% endfor %}
         </ol>
       {% else %}
@@ -88,7 +87,7 @@
       {% if top_wins %}
         <ol class="simple-list ranked">
           {% for r in top_wins %}
-            <li>{{ r.winner }} <span class="muted">({{ r.win_count }} win{{ 's' if r.win_count != 1 else '' }})</span></li>
+            <li><span class="item-name">{{ r.winner }}</span><span class="item-count">{{ r.win_count }} win{{ 's' if r.win_count != 1 else '' }}</span></li>
           {% endfor %}
         </ol>
       {% else %}
