@@ -1,52 +1,49 @@
 # Release Notes
 
-Covers Desktop/Web **v6.8.4 → v6.9.0** and Mobile **v2.1.8 → v2.2.8** (2026-06-22 to 2026-08-04).
+Covers Desktop/Web **v6.9.0 → v6.9.5** and Mobile **v2.2.8 → v2.5.4** (2026-08-04 to 2026-08-24).
+
+This file is duplicated in the companion [BoardGameLibrary](https://github.com/ballewcifer/BoardGameLibrary) repo (Desktop/Web) since most of this window's work spanned all three platforms.
 
 ---
 
-## Bulk editing & advanced filtering
+## Onboarding & getting started (Mobile)
 
-- **Desktop**: the Games table now supports multi-row selection with a right-click bulk action to mark/clear "Has 3D Insert" across selected games. (v6.8.4)
-- **Web**: added a "Select" mode on the Games grid with per-card checkboxes and the same bulk 3D-insert action. (v6.8.4)
-- **Mobile**: long-press a game card to enter multi-select mode, then bulk mark/clear "Has 3D Insert." (v2.1.8)
-- **Mobile**: added a full advanced-filters sheet — players (supports/exact), best-at, play time, complexity, tags, expansions, has-insert — matching Desktop's filter bar. Fixed a follow-up layout bug where the new Filters button broke the quick-filter row. (v2.2.2, v2.2.3)
-- **Desktop & Web**: Members, Checkout History, and Play Log tables are now sortable by clicking any column header (previously only the Games table supported this). Sorting by a combined "Name" column correctly sorts by last name, and date columns sort chronologically regardless of display format. (v6.8.8)
+- Added a first-launch splash screen explaining what the app does and how to get started — shown once. (v2.5.0)
+- The Dashboard now shows a "Let's build your library" prompt when your library is empty, instead of a blank page with no next step. Tapping it offers a choice of syncing BoardGameGeek, scanning a barcode, or adding a game manually. (v2.5.0)
+- BoardGameGeek sync now runs automatically once every 24 hours in the background when a username is configured, instead of requiring a manual tap every launch. (v2.5.0)
 
-## Checkout history
+## Adding games
 
-- **Web**: double-click a row in Checkout History to open the edit dialog (Desktop already supported this). (v6.8.5)
-- **Mobile**: double-tap a checkout card to edit it, and fixed a bug where editing the return date silently discarded the time-of-day. (v2.1.9)
+- **Mobile**: added barcode scanning as a third way to add a game — scan a box's barcode, and the app looks it up and searches BoardGameGeek for a match to confirm. (v2.5.0)
+- **Mobile**: added a persistent "+" button to add a game on the Games tab (previously only reachable via the "⋯" menu); later changed from a floating button to a header icon button matching the same style already used on the Plays tab. (v2.3.3, v2.5.4)
+- **Desktop**: added a persistent "+ Add Game" toolbar button (previously menu-only via Library → Add Game…). (v6.9.2)
 
-## Data integrity fixes
+## "Members" renamed to "Friends"
 
-- **Mobile**: fixed a bug where syncing with BoardGameGeek could silently wipe a game's personal rating, comment, and "best at N players" note — these fields were never provided by BGG's sync data but were being overwritten anyway. Also fixed BGG-provided min/max playtime data being fetched but silently discarded. (v2.2.1)
-- **Desktop & Mobile**: logging a play with a player name that doesn't match an existing Member now auto-creates that Member, instead of silently losing the association. (v6.8.7, v2.2.4)
-- **Desktop**: the Members tab wasn't refreshing after a play auto-created a new member — the member existed in the database but didn't appear until something else triggered a refresh. Also, the "Game" field when logging a play was accidentally locked to selection-only (no typing). Both fixed. (v6.8.8)
+Renamed throughout all three platforms' UI — tab labels, buttons, alerts, empty states, table headers — since testers found "Members" confusing for what's really "who you lend games to." Internal code and database field names are unchanged. (v2.5.0, v6.9.4)
 
-## Backup & restore
+## Crash & error reporting (Mobile)
 
-- **Desktop**: can now import a JSON backup (from Mobile, or Desktop's own "Export for Mobile") directly, merging in new members/plays/loans without needing the old full-database ZIP format. (v6.8.8)
-- **Web**: added backup export/import entirely — previously Web had no backup feature of any kind. Uses the same JSON schema as Desktop and Mobile, so backup files are interchangeable across all three platforms. (v6.9.0)
+Added Sentry crash/error reporting after a TestFlight tester hit an unrecoverable first-launch crash with no diagnostic information available. Now paired with a proper error-boundary fallback screen. Disclosed in the app's privacy policy and store listings. (v2.3.1)
 
-## Dates & formatting
+## Dashboard cleanup
 
-- All three platforms now display dates in US format (MM/DD/YYYY) with no time-of-day shown, instead of raw ISO timestamps. Sorting still works correctly against the underlying date value, not the reformatted text. (v6.8.8/v6.9.0, v2.2.8)
-- The ambiguous 3D-insert package icon (📦) in Desktop's table view was replaced with a text label and checkmark. (v6.8.6)
+Recent Plays and Most Played were each a single cramped line mixing date/name/winner or rank/name/count. Recent Plays now shows the game name on its own line with date and winner below; Most Played gets an aligned rank column matching Top Winners' row style. (v2.5.2, v6.9.5)
 
-## Accessibility
+## Bug fixes
 
-A full accessibility pass across all three platforms (v6.9.0, v2.2.8):
+- **Mobile**: fixed a first-launch crash race where a screen could query the database before its tables were created, on a small percentage of fresh installs. (v2.3.2)
+- **Mobile**: fixed BoardGameGeek sync reporting more games "synced" than actually appeared in the library — caused by BGG occasionally listing the same game twice in a collection, which correctly collapses to one row but was inflating the reported count. Also fixed on Desktop/Web (shared sync code). (v2.3.3, v6.9.1)
+- **Mobile**: fixed a visible screen flicker on Android when opening Add Game (or several other actions) from the "⋯" menu — two native modal windows briefly overlapped. (v2.3.3)
+- **Mobile**: fixed the "⋯" menu on the Games tab being able to grow taller than the screen on smaller devices or with larger text sizes, cutting off the last item ("Clear Collections…") with no way to scroll to it. (v2.5.3)
+- **Mobile**: fixed a gap where a library with only one collection had no way to clear/reset it. (v2.5.1)
+- **All platforms**: game titles now alphabetize the way BoardGameGeek does — ignoring a leading "The", "A", or "An" (e.g. "The Castles of Burgundy" sorts under "C"). (v2.5.0, v6.9.4)
 
-- **Web**: BGG search results (Add Game, Log Play) are now keyboard-operable, not mouse-only. Added missing form-label associations and `aria-label`s across several filter and modal forms. Fixed a color-contrast failure on the Dashboard's "winner" text. Added missing page-heading landmarks.
-- **Mobile**: the bottom tab bar, collection/comparison chips, and all filter/checkbox controls now properly announce their role and state to screen readers — previously inconsistent across the app. Added labels to about 8 icon-only buttons that had none, and enlarged several undersized touch targets.
-- **Desktop**: fixed a color-contrast failure and undersized font on the Games card view's A-Z jump bar. The favorite-star toggle is now keyboard-focusable and operable via Return/Space. Added Menu-key/Shift+F10 keyboard equivalents for every right-click context menu, and Return-key equivalents for Members' and History's double-click actions.
-- **Known gap**: Desktop's card view (as opposed to table view) is still mouse-only for game-card interactions — a larger rework than this pass covered. Keyboard users should prefer Table view, which has full keyboard support.
+## UI polish
+
+- **Mobile**: the Games grid now adds columns on wider screens (tablets, landscape, unfolded foldables) instead of stretching each card wider — BGG's low-resolution thumbnails were visibly blocky when stretched on larger screens. (v2.3.4)
+- **Mobile**: minor icon and floating-button sizing consistency fixes, and Friends-related copy cleanup. (v2.5.1)
 
 ## Store distribution (Mobile)
 
-- Added CI workflows to build a signed Android App Bundle for Google Play and a signed iOS build for the App Store, in addition to the existing sideload APK. A `store-v*` git tag now triggers both together.
-- Added store listing content (descriptions, keywords, Data Safety / App Privacy answers) and a hosted privacy policy required by both stores.
-
-## Also in this window
-
-- Fixed all 14 pre-existing TypeScript errors on Mobile (type-safety cleanup, no user-facing behavior change). (v2.2.0)
+Automated App Store Connect and Google Play submissions end-to-end — `eas submit` now runs non-interactively for both platforms using stored API credentials, so a tagged release can go from build to TestFlight/Play Console without manual uploads.
