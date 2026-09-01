@@ -5001,22 +5001,13 @@ class App(tk.Tk):
         with db.connect() as c:
             all_users = db.list_users(c)
             allowed = db.members_allowed_to_checkout(c, game["bgg_id"])
-        if not all_users:
-            messagebox.showinfo("No friends", "Add a friend on the Friends tab first.")
-            self.nb.select(self.members_tab)
-            return
 
-        # Members who have claimed a different collection can only check out
-        # their own games, so they're hidden from this game's list.
-        users = [u for u in all_users if u["id"] in allowed]
-        if not users:
-            messagebox.showinfo(
-                "Not available to anyone",
-                f"\"{game['name']}\" isn't in any member's claimed collection, so "
-                "no eligible member can check it out.\n\n"
-                "Members who haven't claimed a collection can borrow any game.",
-            )
-            return
+        # Friends who have claimed a different collection can only check out
+        # their own games, so only eligible ones are suggested — but typing a
+        # new name always works, same as the Log Play players field, since a
+        # brand-new friend has no claim and can borrow anything.
+        eligible = [u for u in all_users if u["id"] in allowed]
+        names = [f"{u['first_name']} {u['last_name']}" for u in eligible]
 
         dialog = tk.Toplevel(self)
         dialog.title("Check Out")
@@ -5024,28 +5015,54 @@ class App(tk.Tk):
         dialog.resizable(False, False)
         ttk.Label(dialog, text=f"Check out \"{game['name']}\" to:").grid(row=0, column=0, columnspan=2, padx=12, pady=(12, 6), sticky="w")
 
-        names = [f"{u['first_name']} {u['last_name']}" for u in users]
-        member_var = tk.StringVar(value=names[0])
-        ttk.Combobox(dialog, textvariable=member_var, values=names, state="readonly", width=30).grid(row=1, column=0, columnspan=2, padx=12, sticky="we")
+        member_var = tk.StringVar(value=names[0] if names else "")
+        _AutocompleteEntry(dialog, names, textvariable=member_var, width=30
+                            ).grid(row=1, column=0, columnspan=2, padx=12, sticky="we")
+        next_row = 2
+        if all_users and not eligible:
+            ttk.Label(dialog,
+                text="No current friend can check out this game — type a new name to add one who can.",
+                foreground=C_INK_500, font=("Segoe UI", 8), wraplength=260, justify="left",
+            ).grid(row=next_row, column=0, columnspan=2, padx=12, pady=(4, 0), sticky="w")
+            next_row += 1
 
-        ttk.Label(dialog, text="Due date (optional):").grid(row=2, column=0, columnspan=2, padx=12, pady=(8, 0), sticky="w")
+        ttk.Label(dialog, text="Due date (optional):").grid(row=next_row, column=0, columnspan=2, padx=12, pady=(8, 0), sticky="w")
+        next_row += 1
         due_var = tk.StringVar()
-        _date_entry(dialog, due_var, width=14).grid(row=3, column=0, padx=12, pady=(2, 4), sticky="w")
+        _date_entry(dialog, due_var, width=14).grid(row=next_row, column=0, padx=12, pady=(2, 4), sticky="w")
+        next_row += 1
 
-        ttk.Label(dialog, text="Notes (optional):").grid(row=4, column=0, columnspan=2, padx=12, pady=(4, 0), sticky="w")
+        ttk.Label(dialog, text="Notes (optional):").grid(row=next_row, column=0, columnspan=2, padx=12, pady=(4, 0), sticky="w")
+        next_row += 1
         notes_var = tk.StringVar()
-        ttk.Entry(dialog, textvariable=notes_var, width=34).grid(row=5, column=0, columnspan=2, padx=12, pady=(2, 8), sticky="we")
+        ttk.Entry(dialog, textvariable=notes_var, width=34).grid(row=next_row, column=0, columnspan=2, padx=12, pady=(2, 8), sticky="we")
+        next_row += 1
 
         def confirm() -> None:
-            idx = names.index(member_var.get())
-            user_id = users[idx]["id"]
+            name = member_var.get().strip()
+            if not name:
+                messagebox.showerror("Enter a friend", "Type or select a friend to check out to.")
+                return
             due = due_var.get().strip() or None
             try:
                 with db.connect() as c:
+                    match = next(
+                        (u for u in all_users
+                         if f"{u['first_name']} {u['last_name']}".strip().lower() == name.lower()),
+                        None)
+                    if match:
+                        user_id = match["id"]
+                    else:
+                        # New name, not a current friend — auto-create them,
+                        # same as logging a play with a new player name does.
+                        last_space = name.rfind(" ")
+                        first = name if last_space == -1 else name[:last_space]
+                        last  = "" if last_space == -1 else name[last_space + 1:]
+                        user_id = db.add_user(c, first, last)
                     if not db.user_can_checkout(c, user_id, game["bgg_id"]):
                         messagebox.showerror(
                             "Not in their collection",
-                            f"{member_var.get()} has claimed a collection and can only "
+                            f"{name} has claimed a collection and can only "
                             f"check out games from it.\n\"{game['name']}\" isn't in it.")
                         return
                     db.check_out(c, game["bgg_id"], user_id, notes_var.get().strip(), due_date=due)
@@ -5057,10 +5074,10 @@ class App(tk.Tk):
             self.refresh_members()
             self.refresh_history()
             self.refresh_dashboard()
-            self.status(f"Checked out \"{game['name']}\" to {member_var.get()}.")
+            self.status(f"Checked out \"{game['name']}\" to {name}.")
 
-        ttk.Button(dialog, text="Cancel", command=dialog.destroy).grid(row=6, column=0, padx=12, pady=(0, 12), sticky="we")
-        ttk.Button(dialog, text="Check Out", command=confirm).grid(row=6, column=1, padx=12, pady=(0, 12), sticky="we")
+        ttk.Button(dialog, text="Cancel", command=dialog.destroy).grid(row=next_row, column=0, padx=12, pady=(0, 12), sticky="we")
+        ttk.Button(dialog, text="Check Out", command=confirm).grid(row=next_row, column=1, padx=12, pady=(0, 12), sticky="we")
         dialog.grab_set()
 
     def on_check_in(self, game) -> None:

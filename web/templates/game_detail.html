@@ -39,9 +39,9 @@
     </form>
   {% else %}
     Available
-    {% if can_checkout_here and users %}
+    {% if can_checkout_here %}
       <button class="btn btn-sm btn-light ml" onclick="openModal('modal-checkout')">Check Out</button>
-    {% elif not can_checkout_here %}
+    {% else %}
       <span class="muted ml" style="font-size:.85rem">Not in your collection</span>
     {% endif %}
   {% endif %}
@@ -122,12 +122,17 @@
     <form method="post" action="/games/{{ game.bgg_id }}/checkout">
       <div class="modal-body">
         <label class="form-label" for="co-member">Friend</label>
-        <select id="co-member" name="user_id" class="form-control" required>
-          <option value="">— select —</option>
+        <input type="text" id="co-member" name="friend_name" class="form-control" list="co-member-list"
+               placeholder="Select or type a new friend…" autocomplete="off" required>
+        <datalist id="co-member-list">
           {% for u in users %}
-            <option value="{{ u.id }}">{{ u.first_name }} {{ u.last_name }}</option>
+            <option value="{{ u.first_name }} {{ u.last_name }}">
           {% endfor %}
-        </select>
+        </datalist>
+        {% if not users %}
+          <p class="muted" style="font-size:.8rem;margin-top:4px">No current friend can check out this game —
+            type a new name to add one who can.</p>
+        {% endif %}
         <label class="form-label mt-sm" for="co-due">Due Date (optional)</label>
         <input type="date" id="co-due" name="due_date" class="form-control">
         <label class="form-label mt-sm" for="co-notes">Notes</label>

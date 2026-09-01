@@ -349,14 +349,22 @@ def game_detail(bgg_id):
 
 @app.route("/games/<int:bgg_id>/checkout", methods=["POST"])
 def checkout(bgg_id):
-    user_id  = request.form.get("user_id", type=int)
+    name     = request.form.get("friend_name", "").strip()
     due_date = request.form.get("due_date", "").strip() or None
     notes    = request.form.get("notes", "").strip()
-    if not user_id:
-        flash("Please select a friend.", "error")
+    if not name:
+        flash("Please select or type a friend.", "error")
         return redirect(url_for("game_detail", bgg_id=bgg_id))
     try:
         with db.connect() as c:
+            # New name, not a current friend — auto-create them, same as
+            # logging a play with a new player name does.
+            db.ensure_players_as_members(c, name)
+            match = next(
+                (u for u in db.list_users(c)
+                 if f"{u['first_name']} {u['last_name']}".strip().casefold() == name.casefold()),
+                None)
+            user_id = match["id"]
             if not db.user_can_checkout(c, user_id, bgg_id):
                 flash("That friend has claimed a collection and can only check out "
                       "games from it.", "error")
