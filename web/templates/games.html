@@ -104,49 +104,51 @@
 <!-- Game cards grid -->
 <div class="game-grid" id="grid-container">
   {% for g in games %}
-  <a href="/games/{{ g.bgg_id }}" class="game-card {% if g.loan %}game-card--out{% endif %}"
-     data-bgg-id="{{ g.bgg_id }}" data-out="{{ '1' if g.loan else '' }}">
+  <div class="game-card-wrap {% if g.loan %}game-card--out{% endif %}">
     <label class="game-card-select" onclick="event.stopPropagation()">
       <input type="checkbox" class="game-select-box" value="{{ g.bgg_id }}" onchange="updateBulkCount()">
     </label>
-    {% if g.is_favorite %}<span class="fav-badge"><span aria-hidden="true">★</span><span class="sr-only">Favorite</span></span>{% endif %}
-    {% if g.is_expansion %}<span class="exp-badge" aria-label="Expansion">Expansion</span>{% endif %}
+    <a href="/games/{{ g.bgg_id }}" class="game-card"
+       data-bgg-id="{{ g.bgg_id }}" data-out="{{ '1' if g.loan else '' }}">
+      {% if g.is_favorite %}<span class="fav-badge"><span aria-hidden="true">★</span><span class="sr-only">Favorite</span></span>{% endif %}
+      {% if g.is_expansion %}<span class="exp-badge" aria-label="Expansion">Expansion</span>{% endif %}
 
-    <div class="game-card-img">
-      {% if g.image_path %}
-        <img src="/img/{{ g.bgg_id }}" alt="{{ g.name }}" loading="lazy">
-      {% elif g.image_url or g.thumbnail_url %}
-        <img src="{{ g.image_url or g.thumbnail_url }}" alt="{{ g.name }}" loading="lazy">
-      {% else %}
-        <div class="game-card-no-img">🎲</div>
-      {% endif %}
-    </div>
-
-    <div class="game-card-body">
-      <div class="game-card-name">{{ g.name }}</div>
-      <div class="game-card-meta muted">
-        {% if g.year %}{{ g.year }} · {% endif %}
-        {% if g.min_players and g.max_players %}
-          {{ g.min_players }}–{{ g.max_players }}p ·
+      <div class="game-card-img">
+        {% if g.image_path %}
+          <img src="/img/{{ g.bgg_id }}" alt="{{ g.name }}" loading="lazy">
+        {% elif g.image_url or g.thumbnail_url %}
+          <img src="{{ g.image_url or g.thumbnail_url }}" alt="{{ g.name }}" loading="lazy">
+        {% else %}
+          <div class="game-card-no-img">🎲</div>
         {% endif %}
-        {% if g.playing_time %}{{ g.playing_time }}m{% endif %}
       </div>
-      {% if g.play_count %}
-        <div class="muted" style="font-size:.75rem">{{ g.play_count }} play{{ 's' if g.play_count != 1 else '' }}</div>
-      {% endif %}
-      {% if g.best_players %}
-        <div class="muted" style="font-size:.75rem">★ Best at {{ g.best_players }}</div>
-      {% endif %}
-    </div>
 
-    <div class="game-card-footer">
-      {% if g.loan %}
-        <span class="badge badge-out">Out: {{ g.loan.first_name }}</span>
-      {% else %}
-        <span class="badge badge-in">Available</span>
-      {% endif %}
-    </div>
-  </a>
+      <div class="game-card-body">
+        <div class="game-card-name">{{ g.name }}</div>
+        <div class="game-card-meta muted">
+          {% if g.year %}{{ g.year }} · {% endif %}
+          {% if g.min_players and g.max_players %}
+            {{ g.min_players }}–{{ g.max_players }}p ·
+          {% endif %}
+          {% if g.playing_time %}{{ g.playing_time }}m{% endif %}
+        </div>
+        {% if g.play_count %}
+          <div class="muted" style="font-size:.75rem">{{ g.play_count }} play{{ 's' if g.play_count != 1 else '' }}</div>
+        {% endif %}
+        {% if g.best_players %}
+          <div class="muted" style="font-size:.75rem">★ Best at {{ g.best_players }}</div>
+        {% endif %}
+      </div>
+
+      <div class="game-card-footer">
+        {% if g.loan %}
+          <span class="badge badge-out">Out: {{ g.loan.first_name }}</span>
+        {% else %}
+          <span class="badge badge-in">Available</span>
+        {% endif %}
+      </div>
+    </a>
+  </div>
   {% else %}
   <p class="muted mt" style="grid-column:1/-1">No games found. Try a different search or <button class="btn-link" onclick="openModal('modal-add-game')">add one</button>.</p>
   {% endfor %}
@@ -158,7 +160,7 @@
 // library paints fast instead of rendering hundreds of cards at once.
 (function () {
   const BATCH = 48;
-  const cards = Array.from(document.querySelectorAll('.game-grid > .game-card'));
+  const cards = Array.from(document.querySelectorAll('.game-grid > .game-card-wrap'));
   if (cards.length <= BATCH) return;
   let shown = BATCH;
   cards.forEach((c, i) => { if (i >= BATCH) c.style.display = 'none'; });
@@ -178,12 +180,12 @@
 // A single click still navigates to the detail page — delay it briefly so
 // a following second click can cancel it instead of racing the dblclick.
 (function () {
-  document.querySelectorAll('.game-grid > .game-card[data-bgg-id]').forEach((card) => {
+  document.querySelectorAll('.game-grid .game-card[data-bgg-id]').forEach((card) => {
     let clickTimer = null;
     card.addEventListener('click', (e) => {
       if (document.getElementById('grid-container').classList.contains('select-mode')) {
         e.preventDefault();
-        const box = card.querySelector('.game-select-box');
+        const box = card.parentElement.querySelector('.game-select-box');
         if (e.target !== box) box.checked = !box.checked;
         updateBulkCount();
         return;
@@ -217,7 +219,9 @@ function toggleSelectMode() {
   const grid = document.getElementById('grid-container');
   const on = grid.classList.toggle('select-mode');
   document.getElementById('bulk-bar').hidden = !on;
-  document.getElementById('select-mode-toggle').textContent = on ? '✕ Cancel Select' : '☑ Select';
+  const toggleBtn = document.getElementById('select-mode-toggle');
+  toggleBtn.textContent = on ? '✕ Cancel Select' : '☑ Select';
+  toggleBtn.setAttribute('aria-label', on ? 'Cancel select mode' : 'Select multiple games');
   if (!on) {
     document.querySelectorAll('.game-select-box').forEach(b => { b.checked = false; });
   }

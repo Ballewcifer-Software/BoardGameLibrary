@@ -674,6 +674,7 @@ class App(tk.Tk):
             command=close,
         ).pack(side="right")
 
+        win.bind("<Escape>", lambda *_: win.destroy())
         win.grab_set()
 
     # ---------- style / theme ----------
@@ -1166,7 +1167,7 @@ class App(tk.Tk):
                       bg=C_BLUE_050, fg=C_BLUE_700,
                       activebackground=C_SURFACE, activeforeground=C_BLUE_700,
                       font=("Segoe UI", 11, "bold"),
-                      relief="flat", bd=0, padx=self.SP["sm"], pady=1,
+                      relief="flat", bd=0, padx=self.SP["sm"], pady=self.SP["xs"],
                       cursor="hand2",
                       command=_make_dismiss(clear_fn)).pack(side="left")
 
@@ -1831,6 +1832,7 @@ class App(tk.Tk):
         ttk.Button(row, text="Cancel", style="Ghost.TButton",
                    command=win.destroy).pack(side="left", padx=(0, 6))
         ttk.Button(row, text="Claim", command=do_claim).pack(side="left")
+        win.bind("<Escape>", lambda *_: win.destroy())
         win.grab_set()
 
     def _rename_collection(self, col_id: int) -> None:
@@ -3057,6 +3059,7 @@ class App(tk.Tk):
         summary.pack(anchor="w", padx=10)
 
         ttk.Button(win, text="Close", command=win.destroy).pack(pady=(4, 10))
+        win.bind("<Escape>", lambda *_: win.destroy())
         win.grab_set()
 
     # ---------- history tab ----------
@@ -3440,6 +3443,7 @@ class App(tk.Tk):
                    command=win.destroy).pack(side="left", padx=(0, 6))
         ttk.Button(btn_row, text="Save",   command=save).pack(side="left")
 
+        win.bind("<Escape>", lambda *_: win.destroy())
         win.grab_set()
 
     # ---------- settings dialog ----------
@@ -3533,6 +3537,7 @@ class App(tk.Tk):
         ttk.Button(btn_row, text="Save", command=save).pack(side="left")
 
         frame.columnconfigure(1, weight=1)
+        win.bind("<Escape>", lambda *_: win.destroy())
         win.grab_set()
 
     def on_clear_collection(self) -> None:
@@ -3710,6 +3715,7 @@ class App(tk.Tk):
                    command=win.destroy).pack(side="left", padx=(0, 6))
         ttk.Button(btn_row, text="Clear Selected", style="Danger.TButton",
                    command=do_clear).pack(side="left")
+        win.bind("<Escape>", lambda *_: win.destroy())
         win.grab_set()
 
     # ---------- about ----------
@@ -3782,6 +3788,7 @@ class App(tk.Tk):
             padx=20, pady=6, cursor="hand2",
         ).pack(pady=(14, 18))
 
+        win.bind("<Escape>", lambda *_: win.destroy())
         win.grab_set()
 
     # ---------- actions ----------
@@ -4163,6 +4170,7 @@ class App(tk.Tk):
         ttk.Button(btn_row, text="Keep All", command=win.destroy).pack(side="left", padx=(0, 6))
         ttk.Button(btn_row, text="Remove Selected", command=_do_remove).pack(side="left")
 
+        win.bind("<Escape>", lambda *_: win.destroy())
         win.grab_set()
 
     def _sync_play_to_bgg_bg(
@@ -4454,6 +4462,7 @@ class App(tk.Tk):
         open_btn.state(["disabled"])
         ttk.Button(btn_row, text="🎲  Pick", command=pick).pack(side="left")
 
+        win.bind("<Escape>", lambda *_: win.destroy())
         win.grab_set()
 
     def on_add_game(self) -> None:
@@ -4549,6 +4558,7 @@ class App(tk.Tk):
         search_btn.configure(command=do_search)
         add_btn.configure(command=proceed)
 
+        dlg.bind("<Escape>", lambda *_: dlg.destroy())
         dlg.grab_set()
         query_entry.focus_set()
 
@@ -4912,6 +4922,7 @@ class App(tk.Tk):
                    command=save).pack(side="left")
 
         dlg.columnconfigure(1, weight=1)
+        dlg.bind("<Escape>", lambda *_: dlg.destroy())
         dlg.grab_set()
 
     def _fetch_and_cache_images_bg(self, bgg_ids: list[int], force: bool = False) -> None:
@@ -5209,6 +5220,7 @@ class App(tk.Tk):
 
         ttk.Button(dialog, text="Cancel", command=dialog.destroy).grid(row=next_row, column=0, padx=12, pady=(0, 12), sticky="we")
         ttk.Button(dialog, text="Check Out", command=confirm).grid(row=next_row, column=1, padx=12, pady=(0, 12), sticky="we")
+        dialog.bind("<Escape>", lambda *_: dialog.destroy())
         dialog.grab_set()
 
     def on_check_in(self, game) -> None:
@@ -5824,6 +5836,7 @@ class App(tk.Tk):
         ttk.Button(btn_frame, text="Save Changes" if editing else "Save Play",
                    command=save_play).pack(side="left")
 
+        dialog.bind("<Escape>", lambda *_: dialog.destroy())
         dialog.grab_set()
 
     def on_edit_play(self) -> None:
@@ -6066,6 +6079,7 @@ class App(tk.Tk):
             text_box.pack(fill="x", pady=(0, 6))
             text_box.bind("<MouseWheel>", _on_mousewheel)
 
+        win.bind("<Escape>", lambda *_: win.destroy())
         win.grab_set()
 
     # ---------- set image ----------
@@ -6183,6 +6197,7 @@ class App(tk.Tk):
         ttk.Button(btn_frame, text="Cancel", command=dialog.destroy).pack(side="left")
         ttk.Button(btn_frame, text="Set Image", command=confirm).pack(side="right")
         dialog.bind("<Return>", lambda *_: confirm())
+        dialog.bind("<Escape>", lambda *_: dialog.destroy())
         dialog.grab_set()
 
     # ---------- BGG play history import ----------
