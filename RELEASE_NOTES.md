@@ -1,49 +1,59 @@
 # Release Notes
 
-Covers Desktop/Web **v6.9.0 → v6.9.5** and Mobile **v2.2.8 → v2.5.4** (2026-08-04 to 2026-08-24).
+Covers Desktop/Web **v6.9.6 → v6.10.3** and Mobile **v2.6.2 → v2.6.7** (2026-09-09 to 2026-09-17).
 
 This file is duplicated in the companion [BoardGameLibrary](https://github.com/ballewcifer/BoardGameLibrary) repo (Desktop/Web) since most of this window's work spanned all three platforms.
 
 ---
 
-## Onboarding & getting started (Mobile)
+## BGG collection status (Owned / Wishlist / For Trade / etc.)
 
-- Added a first-launch splash screen explaining what the app does and how to get started — shown once. (v2.5.0)
-- The Dashboard now shows a "Let's build your library" prompt when your library is empty, instead of a blank page with no next step. Tapping it offers a choice of syncing BoardGameGeek, scanning a barcode, or adding a game manually. (v2.5.0)
-- BoardGameGeek sync now runs automatically once every 24 hours in the background when a username is configured, instead of requiring a manual tap every launch. (v2.5.0)
+- Sync now imports your BoardGameGeek collection's real status per game, not just what you own — reviewable and overridable on every platform's Add/Edit Game screen, and shown on the detail view when it isn't the default "Owned." A manual override is protected from being silently overwritten by the next sync. (Mobile v2.6.2, Desktop v6.10.2, Web v6.10.2)
+- **Mobile**: the Games tab's collection-status filter is now multi-select — tap any combination of Owned/Wishlist/For Trade/etc. on or off, instead of picking one at a time. It also now **defaults to "All"** instead of "Owned," so newly-synced wishlist/for-trade items aren't hidden until you go looking for them; the "All" chip is listed first. (v2.6.6, v2.6.7)
+- **Mobile**: only owned games are ever loanable — the "Available" badge, the Available filter, "only available" in the random picker, and Check Out no longer apply to non-owned games. Non-owned games show their real status instead (Wishlist, For Trade, …), each with its own color, applied consistently everywhere a status appears. (v2.6.5)
+- **Mobile**: "Clear Collections" now removes all synced games regardless of status, not just owned ones. (v2.6.3)
+
+## Sync with BGG — now consistent everywhere (Mobile)
+
+The Dashboard's "Sync with BGG" used to be a stripped-down, username-only shortcut with no password field and no way to claim a collection — different from the full version on the Games tab. Both entry points now share one component and offer the exact same fields and behavior, including the optional "claim this collection as my own" step. (v2.6.7)
 
 ## Adding games
 
-- **Mobile**: added barcode scanning as a third way to add a game — scan a box's barcode, and the app looks it up and searches BoardGameGeek for a match to confirm. (v2.5.0)
-- **Mobile**: added a persistent "+" button to add a game on the Games tab (previously only reachable via the "⋯" menu); later changed from a floating button to a header icon button matching the same style already used on the Plays tab. (v2.3.3, v2.5.4)
-- **Desktop**: added a persistent "+ Add Game" toolbar button (previously menu-only via Library → Add Game…). (v6.9.2)
+- **Mobile**: a genuine manual-entry flow ("Add Manually") where every field is editable by hand, not just whatever BGG provides — separate from "Add from BGG" search. Both flows, plus BGG sync, let you set the collection status up front. (v2.6.3)
+- Fixed a bug where BGG search could fail with an authentication error after certain updates — an embedded app token now always takes priority over a stale one from an older build. (Mobile v2.6.3)
 
-## "Members" renamed to "Friends"
+## Cooperative / Competitive game type
 
-Renamed throughout all three platforms' UI — tab labels, buttons, alerts, empty states, table headers — since testers found "Members" confusing for what's really "who you lend games to." Internal code and database field names are unchanged. (v2.5.0, v6.9.4)
+Desktop and Web now match the mobile app: auto-detected from BoardGameGeek's mechanics data on every sync or add, editable per game, usable as a filter and in the random-game picker, and protected from being overwritten by a future sync once manually set. (Desktop/Web v6.10.0)
 
-## Crash & error reporting (Mobile)
+## Expansions link to their base game
 
-Added Sentry crash/error reporting after a TestFlight tester hit an unrecoverable first-launch crash with no diagnostic information available. Now paired with a proper error-boundary fallback screen. Disclosed in the app's privacy policy and store listings. (v2.3.1)
+Desktop and Web now match the mobile app: an expansion's page shows "Expansion for X," and the base game's page shows "Expansions You Own." (Desktop/Web v6.10.1)
 
-## Dashboard cleanup
+## Complete backups
 
-Recent Plays and Most Played were each a single cramped line mixing date/name/winner or rank/name/count. Recent Plays now shows the game name on its own line with date and winner below; Most Played gets an aligned rank column matching Top Winners' row style. (v2.5.2, v6.9.5)
+Backup & restore now includes custom cover photos, best-player counts, and Cooperative/Competitive settings — previously left out of exported backups. (Mobile — already covered; Desktop/Web v6.10.1)
+
+## Checkout friend picker
+
+Desktop and Web's Check Out screen now use the same type-or-pick autocomplete friend picker that Log Play already used, instead of a plain dropdown — a new name auto-creates the friend at checkout time. Also fixed both platforms hiding Check Out entirely when zero friends existed yet. (Desktop/Web v6.9.6)
 
 ## Bug fixes
 
-- **Mobile**: fixed a first-launch crash race where a screen could query the database before its tables were created, on a small percentage of fresh installs. (v2.3.2)
-- **Mobile**: fixed BoardGameGeek sync reporting more games "synced" than actually appeared in the library — caused by BGG occasionally listing the same game twice in a collection, which correctly collapses to one row but was inflating the reported count. Also fixed on Desktop/Web (shared sync code). (v2.3.3, v6.9.1)
-- **Mobile**: fixed a visible screen flicker on Android when opening Add Game (or several other actions) from the "⋯" menu — two native modal windows briefly overlapped. (v2.3.3)
-- **Mobile**: fixed the "⋯" menu on the Games tab being able to grow taller than the screen on smaller devices or with larger text sizes, cutting off the last item ("Clear Collections…") with no way to scroll to it. (v2.5.3)
-- **Mobile**: fixed a gap where a library with only one collection had no way to clear/reset it. (v2.5.1)
-- **All platforms**: game titles now alphabetize the way BoardGameGeek does — ignoring a leading "The", "A", or "An" (e.g. "The Castles of Burgundy" sorts under "C"). (v2.5.0, v6.9.4)
+- Clearing a collection that was synced from a BGG username now also forgets that username, so a later manual sync can't silently recreate the collection you just cleared. (Desktop/Web v6.9.7 — matches an earlier mobile fix)
+- **Mobile**: fixed a launch crash on iOS caused by a couple of native modules being built against mismatched versions of a shared library; also fixed "Set Image" silently missing a required permission description that would have crashed it on iOS regardless. (v2.6.2)
+- **Mobile**: fixed a FlatList layout bug where a single search/filter result stretched to fill the whole row instead of sizing to one column. (v2.6.5)
+- Fixed `upsertGame` occasionally being able to silently wipe an existing game's real BGG status back to unset. (Mobile v2.6.3/v2.6.5, matching fix applied on Desktop/Web)
+- Fixed the Android keyboard-close animation causing modal sheet content to visibly compress and overlap for a frame before snapping into place — was most visible in the Sync with BGG sheet, then found and fixed across every remaining modal that had it. (Mobile, mid-window)
 
-## UI polish
+## Accessibility
 
-- **Mobile**: the Games grid now adds columns on wider screens (tablets, landscape, unfolded foldables) instead of stretching each card wider — BGG's low-resolution thumbnails were visibly blocky when stretched on larger screens. (v2.3.4)
-- **Mobile**: minor icon and floating-button sizing consistency fixes, and Friends-related copy cleanup. (v2.5.1)
+A pass across every platform:
+
+- **Mobile**: added missing screen-reader labels/roles to icon-only buttons, search fields, and save/cancel buttons; fixed a checkbox/switch role mismatch; enlarged an under-sized touch target; announced the disabled state on "saving…" buttons; gave the iOS date-picker sheet the same Escape/back-close behavior every other modal already had. (v2.6.7)
+- **Desktop**: every dialog now closes on Escape (previously only one did); enlarged a too-small touch target on the filter-chip dismiss button. (v6.10.3)
+- **Web**: modal dialogs now trap Tab focus instead of letting it escape into the page behind them; fixed a multi-select checkbox that was invalid HTML (nested inside a link, confusing keyboard/screen-reader focus order); fixed a toggle button's screen-reader label going stale when its visible text changed; added missing screen-reader text to a favorite-star badge; added a visible "Overdue" tag next to the Dashboard's overdue rows, which previously relied on red text color alone; fixed the win-leaderboard's medal icons replacing the numeric rank instead of decorating it, and made the leaderboard toggle announce its expanded/collapsed state. (v6.10.3)
 
 ## Store distribution (Mobile)
 
-Automated App Store Connect and Google Play submissions end-to-end — `eas submit` now runs non-interactively for both platforms using stored API credentials, so a tagged release can go from build to TestFlight/Play Console without manual uploads.
+**Correction from the previous notes**: store submission is **not** fully automated. CI (triggered by a `store-v*` tag) builds and signs the Android App Bundle and iOS build and attaches them to a GitHub Release — it does not upload them to Google Play or App Store Connect. That upload step is still a manual `eas submit` run per platform, using credentials stored in EAS (or a local key file as a fallback). Apple's actual "Submit for Review" click, to publish a version live, is a separate manual step in App Store Connect that nothing in this pipeline performs.
