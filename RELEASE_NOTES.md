@@ -1,6 +1,6 @@
 # Release Notes
 
-Covers Desktop/Web **v6.9.6 → v6.10.3** and Mobile **v2.6.2 → v2.6.7** (2026-09-09 to 2026-09-17).
+Covers Desktop/Web **v6.9.6 → v6.10.3** and Mobile **v2.6.2 → v2.6.10** (2026-09-09 to 2026-09-18).
 
 This file is duplicated in the companion [BoardGameLibrary](https://github.com/ballewcifer/BoardGameLibrary) repo (Desktop/Web) since most of this window's work spanned all three platforms.
 
@@ -16,6 +16,18 @@ This file is duplicated in the companion [BoardGameLibrary](https://github.com/b
 ## Sync with BGG — now consistent everywhere (Mobile)
 
 The Dashboard's "Sync with BGG" used to be a stripped-down, username-only shortcut with no password field and no way to claim a collection — different from the full version on the Games tab. Both entry points now share one component and offer the exact same fields and behavior, including the optional "claim this collection as my own" step. (v2.6.7)
+
+## Friends (Mobile)
+
+- **One sheet for adding a friend everywhere.** Adding a friend, checking a game out to someone new, and logging a play with a new player now all ask for first and last name the same way — previously Check Out and Log Play took one typed string and guessed where to split it. (v2.6.9)
+- **Edit friends**: tap a friend on the Friends tab to change their name or add a BoardGameGeek username later. The Add Friend sheet on that tab also has an optional BGG username (reference only — no collection import yet). (v2.6.9)
+- **Claiming your collection when you sync no longer asks for your name** and no longer creates a friend as a side effect — it's tied to the BGG username you're syncing with. Friends are only created from Add Friend, Check Out, or Log Play. (v2.6.8)
+
+## Backup & restore (Mobile)
+
+- Backups now include **manually added games**, which have no BoardGameGeek record to re-sync from and were previously lost on a reinstall. Older backup files still import; they just don't contain manual games. (v2.6.10)
+- The Dashboard now explains the restore order: export a backup and save it off the phone before reinstalling; after reinstalling, **sync with BoardGameGeek first, then import** — plays, loans, and per-game details only attach to games already in your library. (v2.6.10)
+- Friends' BGG usernames are included in backups. (v2.6.9)
 
 ## Adding games
 
