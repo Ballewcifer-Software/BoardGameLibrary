@@ -1,6 +1,6 @@
 # Release Notes
 
-Covers Desktop/Web **v6.9.6 → v6.10.3** and Mobile **v2.6.2 → v2.6.10** (2026-09-09 to 2026-09-18).
+Covers Desktop/Web **v6.9.6 → v6.10.3** and Mobile **v2.6.2 → v2.7.0** (2026-09-09 to 2026-09-18).
 
 This file is duplicated in the companion [BoardGameLibrary](https://github.com/ballewcifer/BoardGameLibrary) repo (Desktop/Web) since most of this window's work spanned all three platforms.
 
@@ -56,6 +56,7 @@ Desktop and Web's Check Out screen now use the same type-or-pick autocomplete fr
 - **Mobile**: fixed a launch crash on iOS caused by a couple of native modules being built against mismatched versions of a shared library; also fixed "Set Image" silently missing a required permission description that would have crashed it on iOS regardless. (v2.6.2)
 - **Mobile**: fixed a FlatList layout bug where a single search/filter result stretched to fill the whole row instead of sizing to one column. (v2.6.5)
 - Fixed `upsertGame` occasionally being able to silently wipe an existing game's real BGG status back to unset. (Mobile v2.6.3/v2.6.5, matching fix applied on Desktop/Web)
+- **Mobile**: fixed the on-screen keyboard covering sheets on Android. The Friend picker in Check Out and Log Play was the worst case: its "add a new friend" field sat at the very bottom of a short sheet, so opening the keyboard hid the whole sheet. Every sheet and form with a text field now lifts above the keyboard, the picker's add field moved to the top, and the shared sheets leave room for the phone's navigation bar. Also, tapping a button, list row, or game card while the keyboard was open only closed the keyboard first and needed a second tap; that now works on the first tap everywhere, and the Check Out and Edit Checkout sheets scroll instead of cutting fields off. (v2.7.0)
 - Fixed the Android keyboard-close animation causing modal sheet content to visibly compress and overlap for a frame before snapping into place — was most visible in the Sync with BGG sheet, then found and fixed across every remaining modal that had it. (Mobile, mid-window)
 
 ## Accessibility
